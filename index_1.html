@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="theme-color" content="#12293F" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="掃除チェック" />
+<title>フラン軒 掃除チェック</title>
+<!--
+  フラン軒 掃除チェック（GitHub Pages + Firebase 版）— 設定済み
+  Firestore のルールは以下にしておくこと（Firebaseコンソール → Firestore → ルール → 公開）：
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /{document=**} { allow read, write: if true; }
+      }
+    }
+  この index.html を GitHub にアップ → Pages を有効化 → 公開URLを全員に配布。
+-->
+<style>
+  html,body{margin:0;padding:0;background:#EEF2F6;}
+  #root{min-height:100vh;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ====== ここに Firebase の設定を貼り替える ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyD-KNM7Ua95q6ThU0y4hzktDmfwgbUA1_4",
+  authDomain: "furanken-24d07.firebaseapp.com",
+  projectId: "furanken-24d07",
+  storageBucket: "furanken-24d07.firebasestorage.app",
+  messagingSenderId: "666998718096",
+  appId: "1:666998718096:web:7c6c4170d19e1842af6215"
+};
+const configured = !/PASTE_/.test(JSON.stringify(firebaseConfig));
+let db = null, DEL = null;
+if (configured) { try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); DEL = firebase.firestore.FieldValue.delete(); } catch (e) { console.error(e); } }
+
+const C = {
+  ink:"#12293F", inkSoft:"#22405C", cyan:"#0EA5B7", cyanDeep:"#0B7C8B", cyanSoft:"#E6F6F8",
+  paper:"#EEF2F6", card:"#FFFFFF", line:"#E2E8EF", lineSoft:"#EEF2F6",
+  done:"#157A54", doneSoft:"#E6F3EC", drop:"#B3352C", sub:"#5B6B7A", subLight:"#93A1AE",
+};
+const ACCENT = { "トップ":"#0EA5B7", "焼き場":"#C2410C", "麺場":"#3538CD" };
+
+const SEED_ITEMS = [
+  { id:"d01", freq:"daily", cat:"麺場",   text:"スライサー洗う", note:"15時まで" },
+  { id:"d02", freq:"daily", cat:"麺場",   text:"裏のスープ寸胴、ガス台洗う", note:"15時まで" },
+  { id:"d03", freq:"daily", cat:"焼き場", text:"中華鍋台洗う", note:"15時まで" },
+  { id:"d04", freq:"daily", cat:"トップ", text:"窓拭き、パーテーション、看板、券売機掃除", note:"11:30まで" },
+  { id:"d05", freq:"daily", cat:"トップ", text:"ダスター洗う", note:"15時まで" },
+  { id:"d06", freq:"daily", cat:"トップ", text:"ピッチャー、カスター補充", note:"15時まで" },
+  { id:"d07", freq:"daily", cat:"トップ", text:"ピッチャー、カスター補充", note:"18時まで" },
+  { id:"c08", freq:"close", cat:"麺場", text:"冷蔵庫上、壁汚れ（スープ跳ね）" },
+  { id:"c09", freq:"close", cat:"麺場", text:"食器正しい位置に置く" },
+  { id:"c10", freq:"close", cat:"麺場", text:"バットは水気をとって重ねておく(各ポジションごとにおく)" },
+  { id:"c11", freq:"close", cat:"麺場", text:"茹で麺器、上棚(赤ジャンのとこ)、食券置き場は綺麗に洗浄され拭き漏れがない" },
+  { id:"c12", freq:"close", cat:"麺場", text:"レードル、タイマー写真通り正しい位置に置く" },
+  { id:"c13", freq:"close", cat:"麺場", text:"麺は冷蔵庫にしまう" },
+  { id:"c14", freq:"close", cat:"麺場", text:"ニュードラム、アルコール、中性洗剤、ハイター補充" },
+  { id:"c15", freq:"close", cat:"麺場", text:"チャースラ、壁、床綺麗にする" },
+  { id:"c16", freq:"close", cat:"麺場", text:"冷蔵庫内のバットは拭いてしまう、少ないものはお皿に移す、バットの蓋、ラップしているか？" },
+  { id:"c17", freq:"close", cat:"麺場", text:"冷蔵庫内、ゴミや汚れ、冷蔵庫扉綺麗か？" },
+  { id:"c18", freq:"close", cat:"麺場", text:"冷蔵庫下、茹で麺器下ゴミを流す、床磨かれているか？" },
+  { id:"c19", freq:"close", cat:"麺場", text:"ゴミ箱洗浄" },
+  { id:"c20", freq:"close", cat:"麺場", text:"測り綺麗か？" },
+  { id:"c21", freq:"close", cat:"麺場", text:"ガス栓しまっているか？" },
+  { id:"c22", freq:"close", cat:"焼き場", text:"焼き台の上清潔か？" },
+  { id:"c23", freq:"close", cat:"焼き場", text:"食器は正しい位置に置く" },
+  { id:"c24", freq:"close", cat:"焼き場", text:"バットは水気をとって重ねておく(各ポジションごとにおく)" },
+  { id:"c25", freq:"close", cat:"焼き場", text:"フライヤー、炊飯器周りは綺麗に洗浄され拭き漏れがないか？" },
+  { id:"c26", freq:"close", cat:"焼き場", text:"ボウル、ポット等正しい場所においているか？" },
+  { id:"c27", freq:"close", cat:"焼き場", text:"タイマー周り、ダクトの壁や棚、綺麗に老けているか？" },
+  { id:"c28", freq:"close", cat:"焼き場", text:"測り綺麗か？" },
+  { id:"c29", freq:"close", cat:"焼き場", text:"壁、棚、シンク内綺麗に洗浄され拭き漏れがないか？" },
+  { id:"c30", freq:"close", cat:"焼き場", text:"一斗缶は廃油以外処分しているか？" },
+  { id:"c31", freq:"close", cat:"焼き場", text:"ニュードラム、中性洗剤、アルコールの補充はできているか？" },
+  { id:"c32", freq:"close", cat:"焼き場", text:"冷蔵庫内のバットは拭いてしまう、少ないものはお皿に移す、バットの蓋、ラップしているか？" },
+  { id:"c33", freq:"close", cat:"焼き場", text:"冷蔵庫内、ゴミや汚れ、冷蔵庫扉綺麗か？" },
+  { id:"c34", freq:"close", cat:"焼き場", text:"冷蔵庫下、焼き台下は水を流して磨く" },
+  { id:"c35", freq:"close", cat:"焼き場", text:"グリストのゴミ捨て" },
+  { id:"c36", freq:"close", cat:"焼き場", text:"ゴミ箱洗浄" },
+  { id:"c37", freq:"close", cat:"焼き場", text:"フライヤーの電源、ガス栓閉めているか？" },
+  { id:"c38", freq:"close", cat:"トップ", text:"アルコール、中性洗剤、手洗い洗剤補充" },
+  { id:"c39", freq:"close", cat:"トップ", text:"次の日のダスター用意(手拭きタオルは各ポジションにセット)" },
+  { id:"c40", freq:"close", cat:"トップ", text:"洗い終わった食器は全て元の場所" },
+  { id:"c41", freq:"close", cat:"トップ", text:"シンク内、洗浄機内洗浄、拭き漏れないか？" },
+  { id:"c42", freq:"close", cat:"トップ", text:"ピッチャーは正しい場所に戻しているか？" },
+  { id:"c43", freq:"close", cat:"トップ", text:"ドリンク補充できているか？" },
+  { id:"c44", freq:"close", cat:"トップ", text:"生肉はカットされて鍋の蓋が閉じられているか？" },
+  { id:"c45", freq:"close", cat:"トップ", text:"シンク下は水を流し磨く" },
+  { id:"c46", freq:"close", cat:"トップ", text:"ダスターは中性洗剤とホワイトアップで洗い干されているか？" },
+  { id:"c47", freq:"close", cat:"トップ", text:"トイレ掃除" },
+  { id:"c48", freq:"close", cat:"トップ", text:"麺箱前に出す" },
+  { id:"c49", freq:"close", cat:"トップ", text:"ゴミ箱洗浄" },
+  { id:"c50", freq:"close", cat:"トップ", text:"洗浄機の電源を落としガス栓は全て閉まっているか？(裏)" },
+  { id:"w01", freq:"weekly", cat:"月", text:"箸入れ、レンゲ入れ、爪楊枝いれ" },
+  { id:"w02", freq:"weekly", cat:"月", text:"チャースラの刃を研ぐ" },
+  { id:"w03", freq:"weekly", cat:"月", text:"ネギスライサーの刃を研ぐ" },
+  { id:"w04", freq:"weekly", cat:"火", text:"そばタレ、お酢容器洗う" },
+  { id:"w05", freq:"weekly", cat:"火", text:"トイレ換気扇、照明、水場、床清掃" },
+  { id:"w06", freq:"weekly", cat:"火", text:"店前の排水溝、床磨く（営業時間外）" },
+  { id:"w07", freq:"weekly", cat:"水", text:"ホールの壁（黒いところ）" },
+  { id:"w08", freq:"weekly", cat:"水", text:"麺場と焼き場のダクト" },
+  { id:"w09", freq:"weekly", cat:"木", text:"バックヤード床、壁、鏡、電話機" },
+  { id:"w10", freq:"weekly", cat:"木", text:"麺場、焼き場冷蔵庫内" },
+  { id:"w11", freq:"weekly", cat:"金", text:"仕込み場冷蔵庫内" },
+  { id:"w12", freq:"weekly", cat:"金", text:"仕込み場床" },
+  { id:"w13", freq:"weekly", cat:"金", text:"仕込み場コンロ磨き" },
+  { id:"w14", freq:"weekly", cat:"金", text:"手鍋磨き、IH掃除" },
+  { id:"w15", freq:"weekly", cat:"土", text:"グレーチング" },
+  { id:"w16", freq:"weekly", cat:"土", text:"焼き場五徳（燃やす）" },
+  { id:"w17", freq:"weekly", cat:"土", text:"麺場五徳磨き" },
+  { id:"w18", freq:"weekly", cat:"日", text:"グリストラップ" },
+  { id:"w19", freq:"weekly", cat:"日", text:"まな板ハイター" },
+  { id:"w20", freq:"weekly", cat:"日", text:"包丁研ぐ" },
+  { id:"w21", freq:"weekly", cat:"日", text:"油交換" },
+  { id:"w22", freq:"weekly", cat:"日", text:"フライヤー電熱線洗浄" },
+  { id:"m01", freq:"monthly", cat:"", text:"焼き場、麺場冷蔵庫パッキン" },
+  { id:"m02", freq:"monthly", cat:"", text:"製氷機内、製氷機パッキン" },
+  { id:"m03", freq:"monthly", cat:"", text:"厨房エアコン送風口" },
+  { id:"m04", freq:"monthly", cat:"", text:"冷蔵庫フィルターカバー洗浄（各ポジション）" },
+  { id:"m05", freq:"monthly", cat:"", text:"フランケン君空気入れ" },
+  { id:"m06", freq:"monthly", cat:"", text:"ショーケース扉、レール" },
+  { id:"m07", freq:"monthly", cat:"", text:"エアコンリモコン、スイッチ（電気）" },
+  { id:"m08", freq:"monthly", cat:"", text:"カウンター下床磨き" },
+  { id:"m09", freq:"monthly", cat:"", text:"カウンター椅子掃除" },
+  { id:"m10", freq:"monthly", cat:"", text:"1Fエアコン" },
+  { id:"m11", freq:"monthly", cat:"", text:"2Fエアコン" },
+  { id:"m12", freq:"monthly", cat:"", text:"2F換気扇" },
+  { id:"m13", freq:"monthly", cat:"", text:"バックヤードエアコン、換気扇" },
+  { id:"m14", freq:"monthly", cat:"", text:"1F入り口吸気口" },
+  { id:"m15", freq:"monthly", cat:"", text:"暖簾" },
+];
+
+const CATS = ["トップ","焼き場","麺場"];
+const DAYS = ["月","火","水","木","金","土","日"];
+const TABS = [
+  { key:"daily", label:"デイリー" }, { key:"close", label:"クローズ" },
+  { key:"weekly", label:"ウィークリー" }, { key:"monthly", label:"マンスリー" },
+];
+const FREQS = ["daily","close","weekly","monthly"];
+const WD = ["日","月","火","水","木","金","土"];
+const cadence = (f)=> f==="weekly"?"weekly": f==="monthly"?"monthly":"daily";
+const hasPhoto = (f)=> f==="weekly" || f==="monthly";
+const pad = (n)=> String(n).padStart(2,"0");
+const dateKey = (d=new Date())=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const monthKey = (d=new Date())=> `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+function weekKey(d=new Date()){ const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=t.getUTCDay()||7; t.setUTCDate(t.getUTCDate()+4-day); const ys=new Date(Date.UTC(t.getUTCFullYear(),0,1)); const w=Math.ceil(((t-ys)/86400000+1)/7); return `${t.getUTCFullYear()}-W${pad(w)}`; }
+const periodSuffix = (f)=>{ const c=cadence(f); return c==="daily"?dateKey():c==="weekly"?weekKey():monthKey(); };
+function periodLabel(f){ const c=cadence(f), d=new Date(); if(c==="daily") return `${d.getMonth()+1}月${d.getDate()}日（${WD[d.getDay()]}）`; if(c==="weekly") return `今週 ${weekKey()}`; return `${d.getFullYear()}年${d.getMonth()+1}月`; }
+function histLabel(f, s){ const c=cadence(f); if(c==="daily"){ const [y,m,d]=s.split("-").map(Number); const dt=new Date(y,m-1,d); return `${m}/${d}（${WD[dt.getDay()]}）`; } if(c==="weekly") return s.replace("-W"," 第")+"週"; const [,m]=s.split("-"); return `${Number(m)}月`; }
+const nowStamp = ()=>{ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+
+// ---- localStorage helpers (未設定時のフォールバック) ----
+const lsGet=(k,def)=>{ try{const v=localStorage.getItem(k); return v?JSON.parse(v):def;}catch(e){return def;} };
+const lsSet=(k,v)=>{ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){console.error(e);} };
+const bId=(f)=> f+"__"+periodSuffix(f);
+
+function downscaleImage(file, maxDim=1024, quality=0.55){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onerror=()=>reject(new Error("read"));
+    r.onload=()=>{ const img=new Image(); img.onerror=()=>reject(new Error("img"));
+      img.onload=()=>{ let w=img.width,h=img.height; const s=Math.min(1,maxDim/Math.max(w,h)); w=Math.round(w*s); h=Math.round(h*s);
+        const cv=document.createElement("canvas"); cv.width=w; cv.height=h; cv.getContext("2d").drawImage(img,0,0,w,h);
+        resolve(cv.toDataURL("image/jpeg",quality)); };
+      img.src=r.result; };
+    r.readAsDataURL(file);
+  });
+}
+
+function Ring({ pct, size=62, stroke=7, color }){
+  const r=(size-stroke)/2, c=2*Math.PI*r, off=c*(1-Math.max(0,Math.min(100,pct))/100), mid=size/2;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{flexShrink:0}}>
+      <circle cx={mid} cy={mid} r={r} fill="none" stroke={C.lineSoft} strokeWidth={stroke}/>
+      <circle cx={mid} cy={mid} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${mid} ${mid})`} style={{transition:"stroke-dashoffset .45s ease"}}/>
+      <text x={mid} y={mid-1} textAnchor="middle" dominantBaseline="central" fontSize="18" fontWeight="800" fill={C.ink} style={{fontVariantNumeric:"tabular-nums"}}>{pct}</text>
+      <text x={mid} y={mid+13} textAnchor="middle" fontSize="8.5" fontWeight="700" fill={C.subLight}>％</text>
+    </svg>
+  );
+}
+
+function App(){
+  const [me,setMe]=useState(lsGet("fk_me",""));
+  const [nameInput,setNameInput]=useState("");
+  const [editingName,setEditingName]=useState(false);
+  const [pendingCheck,setPendingCheck]=useState(null);
+  const [tab,setTab]=useState("daily");
+  const [buckets,setBuckets]=useState({daily:{},close:{},weekly:{},monthly:{}});
+  const [items,setItems]=useState(SEED_ITEMS);
+  const [editMode,setEditMode]=useState(false);
+  const [editing,setEditing]=useState(null);
+  const [synced,setSynced]=useState(null);
+  const [histOpen,setHistOpen]=useState(false);
+  const [histFreq,setHistFreq]=useState("weekly");
+  const [histRows,setHistRows]=useState([]);
+  const [histLoading,setHistLoading]=useState(false);
+  const [histExpanded,setHistExpanded]=useState(null);
+  const [photoTarget,setPhotoTarget]=useState(null);
+  const [viewer,setViewer]=useState(null);
+  const [barH,setBarH]=useState(94);
+  const [pkey,setPkey]=useState(FREQS.map(periodSuffix).join("|"));
+  const fileRef=useRef(null);
+  const barRef=useRef(null);
+  const photoCache=useRef({});
+
+  useEffect(()=>{ const el=barRef.current; if(!el) return; const upd=()=>setBarH(el.offsetHeight); upd();
+    let ro; if(typeof ResizeObserver!=="undefined"){ ro=new ResizeObserver(upd); ro.observe(el); } window.addEventListener("resize",upd);
+    return ()=>{ if(ro) ro.disconnect(); window.removeEventListener("resize",upd); }; },[editMode]);
+
+  useEffect(()=>{ const t=setInterval(()=>{ const k=FREQS.map(periodSuffix).join("|"); setPkey(p=> p!==k?k:p); }, 30000); return ()=>clearInterval(t); },[]);
+
+  // ---- データ購読 ----
+  useEffect(()=>{
+    if(configured && db){
+      const unsub=[];
+      unsub.push(db.collection("meta").doc("items").onSnapshot(snap=>{
+        if(snap.exists && Array.isArray(snap.data().list)) setItems(snap.data().list);
+        else { db.collection("meta").doc("items").set({list:SEED_ITEMS}).catch(e=>console.error(e)); setItems(SEED_ITEMS); }
+      }, e=>console.error(e)));
+      FREQS.forEach(f=>{
+        unsub.push(db.collection("buckets").doc(bId(f)).onSnapshot(snap=>{
+          setBuckets(p=>({...p,[f]: snap.exists?(snap.data().checks||{}):{}}));
+          setSynced(new Date());
+        }, e=>console.error(e)));
+      });
+      return ()=> unsub.forEach(u=>u&&u());
+    } else {
+      setItems(lsGet("fk_items", SEED_ITEMS));
+      const b={}; FREQS.forEach(f=> b[f]=lsGet("fk_b_"+bId(f),{})); setBuckets(b);
+      setSynced(new Date());
+    }
+  },[pkey]);
+
+  // ---- 書き込み ----
+  const persistItems=async(next)=>{ setItems(next); if(configured&&db) await db.collection("meta").doc("items").set({list:next}); else lsSet("fk_items",next); };
+
+  const applyCheck=async(freq,id,rec)=>{
+    setBuckets(p=>{ const cur={...(p[freq]||{})}; if(rec) cur[id]=rec; else delete cur[id]; return {...p,[freq]:cur}; });
+    if(configured&&db){
+      if(rec) await db.collection("buckets").doc(bId(freq)).set({freq, sfx:periodSuffix(freq), checks:{[id]:rec}},{merge:true}).catch(e=>console.error(e));
+      else await db.collection("buckets").doc(bId(freq)).update({["checks."+id]:DEL}).catch(()=>{});
+    } else {
+      const k="fk_b_"+bId(freq); const cur=lsGet(k,{}); if(rec) cur[id]=rec; else delete cur[id]; lsSet(k,cur);
+    }
+  };
+
+  const delPhoto=async(freq,sfx,id)=>{
+    delete photoCache.current[freq+"__"+sfx+"__"+id];
+    if(configured&&db) await db.collection("photos").doc(freq+"__"+sfx+"__"+id).delete().catch(()=>{});
+    else localStorage.removeItem("fk_p_"+freq+"__"+sfx+"__"+id);
+  };
+
+  const doToggle=async(freq,id,name)=>{
+    const rec = buckets[freq] && buckets[freq][id];
+    if(rec){ const hadPic=rec.pic; await applyCheck(freq,id,null); if(hadPic) await delPhoto(freq,periodSuffix(freq),id); }
+    else { await applyCheck(freq,id,{by:name,at:nowStamp()}); }
+  };
+  const toggle=(freq,id)=>{ if(!me){ setPendingCheck({freq,id}); setNameInput(""); setEditingName(true); return; } doToggle(freq,id,me); };
+
+  const saveName=async()=>{ const n=nameInput.trim(); if(!n) return; setMe(n); setEditingName(false); lsSet("fk_me",n); if(pendingCheck){ const pc=pendingCheck; setPendingCheck(null); await doToggle(pc.freq,pc.id,n); } };
+  const closeName=()=>{ setEditingName(false); setPendingCheck(null); };
+
+  const resetFreq=async(freq)=>{
+    if(!window.confirm(`${TABS.find(t=>t.key===freq).label}のチェックを全部リセットします。写真も消えます。よろしいですか？`)) return;
+    const cur=buckets[freq]||{};
+    await Promise.all(Object.keys(cur).filter(id=>cur[id]&&cur[id].pic).map(id=>delPhoto(freq,periodSuffix(freq),id)));
+    setBuckets(p=>({...p,[freq]:{}}));
+    if(configured&&db) await db.collection("buckets").doc(bId(freq)).set({freq,sfx:periodSuffix(freq),checks:{}}).catch(e=>console.error(e));
+    else lsSet("fk_b_"+bId(freq),{});
+  };
+
+  const pickPhoto=(freq,id)=>{ if(!me){ setNameInput(""); setEditingName(true); return; } setPhotoTarget({freq,id}); if(fileRef.current){ fileRef.current.value=""; fileRef.current.click(); } };
+  const onFilePicked=async(e)=>{
+    const file=e.target.files&&e.target.files[0]; e.target.value=""; const t=photoTarget; setPhotoTarget(null);
+    if(!file||!t) return;
+    let dataURL; try{ dataURL=await downscaleImage(file); }catch(err){ window.alert("写真の読み込みに失敗しました。もう一度お試しください。"); return; }
+    if(dataURL.length>950000){ try{ dataURL=await downscaleImage(file,800,0.5);}catch(e){} }
+    if(dataURL.length>950000){ window.alert("写真が大きすぎます。別の写真でお試しください。"); return; }
+    const sfx=periodSuffix(t.freq); photoCache.current[t.freq+"__"+sfx+"__"+t.id]=dataURL;
+    if(configured&&db) await db.collection("photos").doc(t.freq+"__"+sfx+"__"+t.id).set({data:dataURL}).catch(e=>{console.error(e); window.alert("写真の保存に失敗しました。");});
+    else lsSet("fk_p_"+t.freq+"__"+sfx+"__"+t.id, dataURL);
+    const prev=buckets[t.freq]&&buckets[t.freq][t.id];
+    await applyCheck(t.freq,t.id,{by:(prev&&prev.by)||me, at:(prev&&prev.at)||nowStamp(), pic:true});
+  };
+  const getPhoto=async(freq,sfx,id)=>{
+    const ck=photoCache.current[freq+"__"+sfx+"__"+id]; if(ck) return ck;
+    if(configured&&db){ try{ const d=await db.collection("photos").doc(freq+"__"+sfx+"__"+id).get(); const v=d.exists?d.data().data:null; if(v) photoCache.current[freq+"__"+sfx+"__"+id]=v; return v; }catch(e){ return null; } }
+    return lsGet("fk_p_"+freq+"__"+sfx+"__"+id,null);
+  };
+  const openPhoto=async(freq,id,sfx,canDelete)=>{
+    const suffix=sfx||periodSuffix(freq); const cached=photoCache.current[freq+"__"+suffix+"__"+id];
+    setViewer({freq,id,sfx:suffix,canDelete:!!canDelete,src:cached||null,loading:!cached});
+    const src=await getPhoto(freq,suffix,id);
+    setViewer(v=> v&&v.freq===freq&&v.id===id ? {...v,src:src||cached||null,loading:false}:v);
+  };
+  const deletePhoto=async()=>{
+    if(!viewer) return; if(!window.confirm("この写真を削除します。よろしいですか？")) return;
+    const {freq,id,sfx}=viewer; await delPhoto(freq,sfx,id);
+    const cur=buckets[freq]&&buckets[freq][id];
+    if(cur){ await applyCheck(freq,id,{by:cur.by,at:cur.at}); }
+    setViewer(null);
+  };
+
+  const defaultCat=(f)=> f==="weekly"?"月": f==="monthly"?"":"トップ";
+  const openNew=()=> setEditing({id:"x"+Date.now(),cat:defaultCat(tab),text:"",freq:tab,note:"",_new:true});
+  const openEdit=(it)=> setEditing({...it,note:it.note||""});
+  const saveItem=async()=>{ const e=editing; if(!e.text.trim()) return;
+    const clean={id:e.id,freq:e.freq,text:e.text.trim(),cat:e.freq==="monthly"?"":(e.cat||defaultCat(e.freq)),note:e.freq==="daily"?(e.note||"").trim():""};
+    const exists=items.some(i=>i.id===clean.id); const next=exists?items.map(i=>i.id===clean.id?clean:i):[...items,clean];
+    setEditing(null); await persistItems(next); };
+  const deleteItem=async(id)=>{ if(!window.confirm("この項目を削除します。よろしいですか？")) return; setEditing(null); await persistItems(items.filter(i=>i.id!==id)); };
+  const move=async(id,dir)=>{ const it=items.find(i=>i.id===id); const sib=items.filter(x=>x.freq===it.freq&&x.cat===it.cat); const si=sib.findIndex(x=>x.id===id); const tgt=sib[si+dir]; if(!tgt) return;
+    const a=items.findIndex(x=>x.id===id), b=items.findIndex(x=>x.id===tgt.id); const next=items.slice(); const tmp=next[a]; next[a]=next[b]; next[b]=tmp; await persistItems(next); };
+  const loadSeed=async()=>{ if(!window.confirm("フラン軒の掃除表を読み込みます。今の項目は置き換わります。よろしいですか？")) return; await persistItems(SEED_ITEMS.map(x=>({...x}))); };
+  const clearAll=async()=>{ if(!window.confirm("全項目を削除して白紙にします。よろしいですか？（チェック済みの記録は残ります）")) return; await persistItems([]); };
+
+  const loadHistory=useCallback(async(freq)=>{
+    setHistLoading(true);
+    const total=items.filter(i=>i.freq===freq).length;
+    let raw=[];
+    if(configured&&db){ try{ const qs=await db.collection("buckets").where("freq","==",freq).get(); raw=qs.docs.map(d=>{const x=d.data(); return {sfx:x.sfx, checks:x.checks||{}};}); }catch(e){ console.error(e); } }
+    else { for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); const pre="fk_b_"+freq+"__"; if(k&&k.indexOf(pre)===0){ raw.push({sfx:k.slice(pre.length), checks:lsGet(k,{})}); } } }
+    const rows=raw.filter(r=>Object.keys(r.checks).length>0).sort((a,b)=>b.sfx.localeCompare(a.sfx)).slice(0,90)
+      .map(r=>({sfx:r.sfx,label:histLabel(freq,r.sfx),done:Object.keys(r.checks).length,total,rec:r.checks}));
+    setHistRows(rows); setHistLoading(false);
+  },[items]);
+  const openHistory=async()=>{ setHistExpanded(null); setHistFreq(tab); setHistOpen(true); await loadHistory(tab); };
+  const switchHistFreq=async(f)=>{ setHistFreq(f); setHistExpanded(null); await loadHistory(f); };
+
+  const itemText=(id)=>{ const it=items.find(x=>x.id===id); return it?it.text:"#"+id; };
+  const itemsOf=(f)=> items.filter(i=>i.freq===f);
+  const doneCount=(f)=> itemsOf(f).filter(i=> buckets[f]&&buckets[f][i.id]).length;
+  const totalCount=(f)=> itemsOf(f).length;
+
+  const tabItems=itemsOf(tab); const dc=doneCount(tab), tc=totalCount(tab), pct=tc?Math.round(dc/tc*100):0;
+  const showCam=hasPhoto(tab); const emptyView=!editMode && tabItems.length===0;
+
+  const groups={};
+  if(tab==="daily"||tab==="close"){ CATS.forEach(c=>groups[c]=[]); tabItems.forEach(i=>(groups[i.cat]||(groups[i.cat]=[])).push(i)); }
+  else if(tab==="weekly"){ DAYS.forEach(d=>groups[d]=[]); tabItems.forEach(i=>(groups[i.cat]||(groups[i.cat]=[])).push(i)); }
+  else { groups[""]=tabItems.slice(); }
+
+  const histAvg=histRows.length?Math.round(histRows.reduce((s,r)=>s+(r.total?Math.min(100,r.done/r.total*100):0),0)/histRows.length):0;
+  const histFull=histRows.filter(r=>r.total&&r.done>=r.total).length;
+
+  const Seg=({value,options,labels,onChange,size})=> (
+    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+      {options.map((o,k)=>(
+        <button key={o} onClick={()=>onChange(o)} style={{border:`1.5px solid ${value===o?C.cyan:C.line}`,background:value===o?C.cyanSoft:"#fff",color:value===o?C.cyanDeep:C.sub,borderRadius:10,padding:size==="sm"?"7px 12px":"9px 13px",fontSize:13,fontWeight:800,cursor:"pointer"}}>{labels?labels[k]:o}</button>
+      ))}
+    </div>
+  );
+  const pill=(bg,fg,brd)=>({background:bg,color:fg,border:`1px solid ${brd}`,borderRadius:999,padding:"7px 13px",fontSize:12.5,fontWeight:800,cursor:"pointer"});
+  const CamButton=({freq,id,rec})=> (
+    <button aria-label={rec&&rec.pic?"写真を見る":"写真を撮る"} onClick={(e)=>{ e.stopPropagation(); rec&&rec.pic?openPhoto(freq,id,null,true):pickPhoto(freq,id); }}
+      style={{position:"relative",flexShrink:0,alignSelf:"center",width:42,height:42,borderRadius:13,border:`1.5px solid ${rec&&rec.pic?C.done:C.line}`,background:rec&&rec.pic?C.done:"#fff",color:rec&&rec.pic?"#fff":C.subLight,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      📷{rec&&rec.pic&&<span style={{position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:999,background:"#fff",border:`1.5px solid ${C.done}`,color:C.done,fontSize:10,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✓</span>}
+    </button>
+  );
+
+  return (
+    <div style={{minHeight:"100vh",background:C.paper,fontFamily:"'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif",color:C.ink,WebkitFontSmoothing:"antialiased"}}>
+      <style>{`
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+        .fk-scroll{padding-bottom:calc(48px + env(safe-area-inset-bottom));}
+        .fk-appbar{padding-top:calc(12px + env(safe-area-inset-top));}
+        .fk-row{transition:background .14s ease;} .fk-row:active{background:#F1F6FA;}
+        .fk-check{transition:background .18s ease,border-color .18s ease,transform .12s cubic-bezier(.2,1.3,.5,1);} .fk-check:active{transform:scale(.88);}
+        .fk-tap:active{transform:scale(.97);}
+        button:focus-visible,[role=button]:focus-visible{outline:2px solid ${C.cyan};outline-offset:2px;}
+        textarea,input{font-family:inherit;}
+        .fk-sticky{position:sticky;z-index:12;}
+        @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
+      `}</style>
+
+      <input ref={fileRef} type="file" accept="image/*" onChange={onFilePicked} style={{display:"none"}}/>
+
+      <div ref={barRef} className="fk-appbar" style={{position:"sticky",top:0,zIndex:30,background:`linear-gradient(180deg, ${C.ink} 0%, ${C.inkSoft} 100%)`,color:"#fff",boxShadow:"0 4px 18px rgba(18,41,63,.22)"}}>
+        <div style={{maxWidth:640,margin:"0 auto",padding:"0 14px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+            <div style={{flexShrink:0}}>
+              <div style={{fontSize:10.5,letterSpacing:".18em",color:C.cyan,fontWeight:800}}>フラン軒</div>
+              <div style={{fontSize:19,fontWeight:800,marginTop:1,letterSpacing:".01em"}}>掃除チェック</div>
+            </div>
+            <div style={{display:"flex",gap:7,alignItems:"center"}}>
+              <button className="fk-tap" onClick={openHistory} style={pill("rgba(255,255,255,.14)","#fff","rgba(255,255,255,.22)")}>履歴</button>
+              <button className="fk-tap" onClick={()=>setEditMode(v=>!v)} style={pill(editMode?C.cyan:"rgba(255,255,255,.14)",editMode?"#062830":"#fff",editMode?C.cyan:"rgba(255,255,255,.22)")}>{editMode?"完了":"編集"}</button>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:3,marginTop:12}}>
+            {TABS.map(t=>{ const on=t.key===tab,d=doneCount(t.key),tot=totalCount(t.key),done=tot>0&&d===tot;
+              return (
+                <button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,border:"none",cursor:"pointer",position:"relative",background:on?C.paper:"transparent",color:on?C.ink:"rgba(255,255,255,.72)",borderRadius:"11px 11px 0 0",padding:"9px 2px 10px",fontWeight:800,fontSize:12.5,overflow:"hidden"}}>
+                  {on&&<span style={{position:"absolute",top:0,left:10,right:10,height:3,background:C.cyan,borderRadius:3}}/>}
+                  {t.label}
+                  <span style={{display:"block",fontSize:10.5,fontWeight:800,marginTop:2,fontVariantNumeric:"tabular-nums",color:on?(done?C.done:C.subLight):"rgba(255,255,255,.5)"}}>{d}/{tot}{done?" ✓":""}</span>
+                </button>
+              ); })}
+          </div>
+        </div>
+      </div>
+
+      {!configured && (
+        <div style={{background:"#FBEEE7",color:"#8A4B1B",borderBottom:"1px solid #F0D9C7",padding:"9px 14px",fontSize:12,lineHeight:1.6,textAlign:"center"}}>
+          Firebase未設定：いまは<strong>この端末だけの保存</strong>です。全員で同期するには、ファイル冒頭の firebaseConfig に設定を貼ってください。
+        </div>
+      )}
+
+      <div className="fk-scroll" style={{maxWidth:640,margin:"0 auto",padding:"14px 12px 0"}}>
+        {emptyView ? (
+          <div style={{background:C.card,border:`1px dashed ${C.line}`,borderRadius:18,padding:"30px 20px",textAlign:"center",color:C.sub,lineHeight:1.85}}>
+            <div style={{fontSize:15,fontWeight:800,color:C.ink,marginBottom:6}}>まだ項目がありません</div>
+            右上の「編集」から追加できます。<br/>掃除表を戻すなら「編集」→「掃除表を読み込む」。
+          </div>
+        ) : (
+          <React.Fragment>
+            {!editMode && (
+              <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:"14px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:16,boxShadow:"0 1px 2px rgba(18,41,63,.04)"}}>
+                <Ring pct={pct} color={pct===100?C.done:C.cyan}/>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:13,color:C.sub,fontWeight:700}}>{periodLabel(tab)}</div>
+                  <div style={{fontSize:19,fontWeight:800,color:C.ink,marginTop:3,fontVariantNumeric:"tabular-nums"}}>{dc} <span style={{fontSize:13,color:C.subLight,fontWeight:700}}>/ {tc} 完了</span></div>
+                  <div style={{fontSize:12,color:pct===100?C.done:C.subLight,fontWeight:700,marginTop:2}}>{pct===100?"すべて完了 🎉":`残り ${tc-dc} 件`}</div>
+                </div>
+              </div>
+            )}
+
+            {Object.entries(groups).map(([g,list])=>{
+              if(!list.length && !editMode) return null;
+              const showHeader=g!=="";
+              const gd=list.filter(i=>buckets[tab]&&buckets[tab][i.id]).length; const gDone=list.length&&gd===list.length;
+              const acc=ACCENT[g]||C.inkSoft;
+              return (
+                <div key={g||"all"} style={{marginBottom:14}}>
+                  {showHeader && (
+                    <div className="fk-sticky" style={{top:barH,background:C.paper,padding:"6px 4px 8px",display:"flex",alignItems:"center",gap:9}}>
+                      <span style={{width:9,height:9,borderRadius:3,background:acc,flexShrink:0,transform:"rotate(45deg)"}}/>
+                      <span style={{fontSize:14,fontWeight:800,color:C.ink}}>{tab==="weekly"?`${g}曜日`:g}</span>
+                      {!editMode && <span style={{fontSize:11,fontWeight:800,color:gDone?C.done:C.subLight,background:gDone?C.doneSoft:"#fff",border:`1px solid ${gDone?"transparent":C.line}`,borderRadius:999,padding:"2px 9px",fontVariantNumeric:"tabular-nums"}}>{gd}/{list.length}{gDone?" ✓":""}</span>}
+                      <span style={{flex:1,height:1,background:C.line}}/>
+                    </div>
+                  )}
+                  <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden",boxShadow:"0 1px 2px rgba(18,41,63,.04)"}}>
+                    {list.length===0 && <div style={{padding:"16px",fontSize:13,color:C.subLight}}>項目なし</div>}
+                    {list.map((i,idx)=>{ const rec=buckets[tab]&&buckets[tab][i.id]; const done=!!rec;
+                      if(editMode){
+                        return (
+                          <div key={i.id} style={{display:"flex",gap:9,alignItems:"center",padding:"11px 12px",borderTop:idx===0?"none":`1px solid ${C.lineSoft}`}}>
+                            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                              <button className="fk-tap" onClick={()=>move(i.id,-1)} style={{border:`1px solid ${C.line}`,background:"#fff",borderRadius:7,width:32,height:25,fontSize:11,cursor:"pointer",color:C.sub}}>▲</button>
+                              <button className="fk-tap" onClick={()=>move(i.id,1)} style={{border:`1px solid ${C.line}`,background:"#fff",borderRadius:7,width:32,height:25,fontSize:11,cursor:"pointer",color:C.sub}}>▼</button>
+                            </div>
+                            <button onClick={()=>openEdit(i)} style={{flex:1,textAlign:"left",background:"transparent",border:"none",cursor:"pointer",padding:0}}>
+                              <div style={{fontSize:14.5,fontWeight:600,color:C.ink,lineHeight:1.45}}>{i.text}</div>
+                              {(i.note||tab!=="monthly") && (
+                                <div style={{marginTop:6,display:"flex",gap:6,flexWrap:"wrap"}}>
+                                  {tab!=="monthly" && <span style={{fontSize:10.5,fontWeight:800,color:C.sub,background:C.lineSoft,borderRadius:6,padding:"2px 8px"}}>{tab==="weekly"?`${i.cat}曜`:i.cat}</span>}
+                                  {i.note && <span style={{fontSize:10.5,fontWeight:800,color:C.cyanDeep,background:C.cyanSoft,borderRadius:6,padding:"2px 8px"}}>{i.note}</span>}
+                                </div>
+                              )}
+                            </button>
+                            <button className="fk-tap" onClick={()=>openEdit(i)} style={{border:`1px solid ${C.line}`,background:"#fff",borderRadius:9,padding:"8px 12px",fontSize:13,fontWeight:800,color:C.cyanDeep,cursor:"pointer"}}>編集</button>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={i.id} style={{display:"flex",gap:11,alignItems:"stretch",padding:"11px 12px 11px 14px",borderTop:idx===0?"none":`1px solid ${C.lineSoft}`,background:done?C.doneSoft:C.card}}>
+                          <div className="fk-row" role="button" tabIndex={0} onClick={()=>toggle(tab,i.id)} onKeyDown={(e)=>(e.key==="Enter"||e.key===" ")&&(e.preventDefault(),toggle(tab,i.id))} style={{display:"flex",gap:13,alignItems:"flex-start",cursor:"pointer",flex:1,minWidth:0,padding:"3px 0",borderRadius:8}}>
+                            <div className="fk-check" style={{width:27,height:27,flexShrink:0,marginTop:1,borderRadius:9,border:done?"none":"2px solid #C4CFD9",background:done?C.done:"#fff",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:16,fontWeight:900,boxShadow:done?"none":"inset 0 1px 2px rgba(18,41,63,.05)"}}>{done?"✓":""}</div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:15,lineHeight:1.5,fontWeight:600,color:done?C.subLight:C.ink,textDecoration:done?"line-through":"none",textDecorationColor:"rgba(21,122,84,.5)"}}>{i.text}</div>
+                              {(i.note||done) && (
+                                <div style={{display:"flex",flexWrap:"wrap",gap:7,marginTop:7,alignItems:"center"}}>
+                                  {i.note && <span style={{fontSize:10.5,fontWeight:800,color:C.cyanDeep,background:C.cyanSoft,borderRadius:6,padding:"2px 8px"}}>{i.note}</span>}
+                                  {done && <span style={{fontSize:10.5,fontWeight:800,color:C.done,background:"#fff",border:`1px solid ${C.doneSoft}`,borderRadius:999,padding:"2px 9px",fontVariantNumeric:"tabular-nums"}}>✓ {rec.by} {rec.at}</span>}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {showCam && <CamButton freq={tab} id={i.id} rec={rec}/>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </React.Fragment>
+        )}
+
+        {editMode ? (
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:6}}>
+            <button className="fk-tap" onClick={openNew} style={{background:C.cyan,color:"#062830",border:"none",borderRadius:12,padding:"13px",fontSize:14.5,fontWeight:800,cursor:"pointer"}}>＋ {TABS.find(t=>t.key===tab).label}に項目を追加</button>
+            <button className="fk-tap" onClick={loadSeed} style={{background:"#fff",color:C.ink,border:`1px solid ${C.line}`,borderRadius:12,padding:"11px",fontSize:13,fontWeight:800,cursor:"pointer"}}>掃除表を読み込む（初期状態に戻す）</button>
+            {items.length>0 && <button className="fk-tap" onClick={clearAll} style={{background:"#fff",color:C.drop,border:`1px solid ${C.line}`,borderRadius:12,padding:"11px",fontSize:13,fontWeight:800,cursor:"pointer"}}>全項目を削除して白紙にする</button>}
+          </div>
+        ) : !emptyView ? (
+          <div style={{marginTop:6}}>
+            <button className="fk-tap" onClick={()=>resetFreq(tab)} style={{background:"#fff",color:C.drop,border:`1px solid ${C.line}`,borderRadius:12,padding:"10px 15px",fontSize:13,fontWeight:800,cursor:"pointer"}}>この画面をリセット（{TABS.find(t=>t.key===tab).label}）</button>
+            <div style={{fontSize:11.5,color:C.subLight,lineHeight:1.75,marginTop:14,padding:"0 2px"}}>
+              {me ? (<React.Fragment>記録名 <span style={{color:C.sub,fontWeight:800}}>{me}</span>　<button onClick={()=>{setNameInput(me);setEditingName(true);}} style={{background:"none",border:"none",color:C.cyanDeep,fontWeight:800,fontSize:11.5,cursor:"pointer",padding:0,textDecoration:"underline"}}>変更</button><br/></React.Fragment>) : (<React.Fragment>項目を押すと名前を聞かれます。次回からは自動でその名前で記録されます。<br/></React.Fragment>)}
+              {showCam && <React.Fragment>各項目の 📷 で掃除写真を添付できます（縮小して保存・全員に共有）。<br/></React.Fragment>}
+              デイリー・クローズは毎日、ウィークリーは週、マンスリーは月で自動リセットされます。
+              {synced && <React.Fragment><br/>{configured?"同期中":"この端末に保存"} ・ {pad(synced.getHours())}:{pad(synced.getMinutes())}</React.Fragment>}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {viewer && (
+        <div onClick={()=>setViewer(null)} style={{position:"fixed",inset:0,background:"rgba(6,18,28,.92)",zIndex:80,display:"flex",flexDirection:"column"}}>
+          <div className="fk-appbar" style={{padding:"0 16px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",color:"#fff"}}>
+            <div style={{fontSize:14,fontWeight:700,maxWidth:"70%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{itemText(viewer.id)}</div>
+            <button onClick={()=>setViewer(null)} style={pill("rgba(255,255,255,.16)","#fff","rgba(255,255,255,.28)")}>閉じる</button>
+          </div>
+          <div onClick={(e)=>e.stopPropagation()} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 12px",minHeight:0}}>
+            {viewer.loading ? <div style={{color:"#fff",opacity:.8}}>読み込み中…</div> : viewer.src ? <img src={viewer.src} alt="掃除写真" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:12,objectFit:"contain"}}/> : <div style={{color:"#fff",opacity:.8,textAlign:"center",lineHeight:1.7}}>写真が見つかりませんでした。<br/>削除済みか、まだ同期されていない可能性があります。</div>}
+          </div>
+          <div style={{padding:"16px",paddingBottom:"calc(16px + env(safe-area-inset-bottom))",display:"flex",gap:8,justifyContent:"center"}}>
+            {viewer.canDelete && <button onClick={()=>pickPhoto(viewer.freq,viewer.id)} style={pill(C.cyan,"#062830",C.cyan)}>撮り直す</button>}
+            {viewer.canDelete && viewer.src && <button onClick={deletePhoto} style={pill("transparent","#fff",C.drop)}>削除</button>}
+          </div>
+        </div>
+      )}
+
+      {histOpen && (
+        <div style={{position:"fixed",inset:0,background:C.paper,zIndex:55,display:"flex",flexDirection:"column"}}>
+          <div className="fk-appbar" style={{background:`linear-gradient(180deg, ${C.ink} 0%, ${C.inkSoft} 100%)`,color:"#fff",padding:"0 16px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 4px 18px rgba(18,41,63,.22)"}}>
+            <div style={{fontSize:17,fontWeight:800}}>履歴</div>
+            <button onClick={()=>setHistOpen(false)} style={pill(C.cyan,"#062830",C.cyan)}>閉じる</button>
+          </div>
+          <div style={{padding:"12px 14px 4px",maxWidth:640,width:"100%",margin:"0 auto"}}>
+            <Seg value={histFreq} options={FREQS} labels={["デイリー","クローズ","ウィークリー","マンスリー"]} size="sm" onChange={switchHistFreq}/>
+          </div>
+          <div className="fk-scroll" style={{flex:1,overflowY:"auto",padding:"8px 14px 0",maxWidth:640,width:"100%",margin:"0 auto"}}>
+            {!histLoading && histRows.length>0 && (
+              <div style={{display:"flex",gap:10,margin:"6px 0 14px"}}>
+                <div style={{flex:1,background:C.card,border:`1px solid ${C.line}`,borderRadius:14,padding:"13px 15px"}}>
+                  <div style={{fontSize:11.5,color:C.sub,fontWeight:700}}>平均達成率</div>
+                  <div style={{fontSize:26,fontWeight:800,color:C.ink,fontVariantNumeric:"tabular-nums"}}>{histAvg}<span style={{fontSize:14,color:C.subLight}}>％</span></div>
+                  <div style={{fontSize:10.5,color:C.subLight}}>直近{histRows.length}{cadence(histFreq)==="daily"?"日":cadence(histFreq)==="weekly"?"週":"か月"}</div>
+                </div>
+                <div style={{flex:1,background:C.card,border:`1px solid ${C.line}`,borderRadius:14,padding:"13px 15px"}}>
+                  <div style={{fontSize:11.5,color:C.sub,fontWeight:700}}>全項目クリア</div>
+                  <div style={{fontSize:26,fontWeight:800,color:C.done,fontVariantNumeric:"tabular-nums"}}>{histFull}<span style={{fontSize:14,color:C.subLight}}>回</span></div>
+                  <div style={{fontSize:10.5,color:C.subLight}}>100%達成した回数</div>
+                </div>
+              </div>
+            )}
+            {histLoading && <div style={{padding:"30px 0",textAlign:"center",color:C.subLight,fontSize:14}}>読み込み中…</div>}
+            {!histLoading && histRows.length===0 && <div style={{padding:"40px 16px",textAlign:"center",color:C.subLight,fontSize:14,lineHeight:1.7}}>まだ記録がありません。<br/>チェックを始めると、ここに達成状況が残ります。</div>}
+            {!histLoading && histRows.map(r=>{ const p=r.total?Math.min(100,Math.round(r.done/r.total*100)):0; const full=r.total&&r.done>=r.total; const open=histExpanded===r.sfx;
+              const detail=Object.entries(r.rec).sort((a,b)=>(a[1].at||"").localeCompare(b[1].at||""));
+              return (
+                <div key={r.sfx} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:14,marginBottom:8,overflow:"hidden"}}>
+                  <button onClick={()=>setHistExpanded(open?null:r.sfx)} style={{width:"100%",textAlign:"left",background:"transparent",border:"none",cursor:"pointer",padding:"13px 14px",display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{width:74,flexShrink:0,fontSize:13.5,fontWeight:800,color:C.ink}}>{r.label}</div>
+                    <div style={{flex:1,minWidth:0}}><div style={{height:9,background:C.lineSoft,borderRadius:999,overflow:"hidden"}}><div style={{width:`${p}%`,height:"100%",background:full?C.done:C.cyan,borderRadius:999}}/></div></div>
+                    <div style={{width:72,flexShrink:0,textAlign:"right",fontSize:12.5,color:C.sub,fontVariantNumeric:"tabular-nums"}}><span style={{fontSize:15,fontWeight:800,color:full?C.done:C.ink}}>{p}％</span><br/><span style={{fontSize:10.5}}>{r.done}/{r.total}</span></div>
+                    <div style={{color:C.subLight,fontSize:12,flexShrink:0}}>{open?"▲":"▼"}</div>
+                  </button>
+                  {open && (
+                    <div style={{borderTop:`1px solid ${C.lineSoft}`,padding:"10px 14px",background:"#FAFCFD"}}>
+                      {detail.length===0 ? <div style={{fontSize:12.5,color:C.subLight}}>チェックなし</div> : detail.map(([id,v])=>(
+                        <div key={id} style={{display:"flex",gap:8,alignItems:"baseline",padding:"5px 0",fontSize:12.5}}>
+                          <span style={{color:C.done,fontWeight:900,flexShrink:0}}>✓</span>
+                          <span style={{flex:1,color:C.ink,lineHeight:1.45}}>{itemText(id)}</span>
+                          {v.pic && <button onClick={()=>openPhoto(histFreq,id,r.sfx,false)} style={{background:C.doneSoft,border:`1px solid ${C.done}`,color:C.done,borderRadius:7,padding:"2px 8px",fontSize:11,fontWeight:800,cursor:"pointer",flexShrink:0}}>📷</button>}
+                          <span style={{color:C.subLight,flexShrink:0,fontSize:11,fontVariantNumeric:"tabular-nums"}}>{v.by} {v.at}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {!histLoading && histRows.length>0 && <div style={{fontSize:11,color:C.subLight,lineHeight:1.7,marginTop:10}}>達成率は「その期間のチェック数 ÷ 現在の項目数」です。行をタップで内訳、📷で写真を確認できます。</div>}
+          </div>
+        </div>
+      )}
+
+      {editing && (
+        <div onClick={()=>setEditing(null)} style={{position:"fixed",inset:0,background:"rgba(18,41,63,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:60}}>
+          <div onClick={(e)=>e.stopPropagation()} style={{background:"#fff",borderRadius:"20px 20px 0 0",padding:"20px 20px calc(20px + env(safe-area-inset-bottom))",width:"100%",maxWidth:640,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 -10px 44px rgba(0,0,0,.28)"}}>
+            <div style={{width:40,height:4,borderRadius:999,background:C.line,margin:"-6px auto 14px"}}/>
+            <div style={{fontSize:16.5,fontWeight:800,marginBottom:16}}>{editing._new?"項目を追加":"項目を編集"}</div>
+            <label style={{fontSize:12.5,fontWeight:800,color:C.sub}}>チェック項目</label>
+            <textarea value={editing.text} onChange={(e)=>setEditing({...editing,text:e.target.value})} rows={2} placeholder="例：製氷機は清潔に保たれている" style={{width:"100%",padding:"11px 13px",fontSize:15,border:`1.5px solid ${C.line}`,borderRadius:12,margin:"7px 0 16px",outline:"none",resize:"vertical"}}/>
+            <label style={{fontSize:12.5,fontWeight:800,color:C.sub,display:"block",marginBottom:7}}>種類</label>
+            <div style={{marginBottom:16}}><Seg value={editing.freq} options={FREQS} labels={["デイリー","クローズ","ウィークリー","マンスリー"]} onChange={(v)=>setEditing({...editing,freq:v,cat:v==="weekly"?(DAYS.indexOf(editing.cat)>=0?editing.cat:"月"):v==="monthly"?"":(CATS.indexOf(editing.cat)>=0?editing.cat:"トップ"),note:v==="daily"?(editing.note||""):""})}/></div>
+            {editing.freq!=="monthly" && (
+              <React.Fragment>
+                <label style={{fontSize:12.5,fontWeight:800,color:C.sub,display:"block",marginBottom:7}}>{editing.freq==="weekly"?"曜日":"ポジション"}</label>
+                <div style={{marginBottom:16}}><Seg value={editing.cat} options={editing.freq==="weekly"?DAYS:CATS} onChange={(v)=>setEditing({...editing,cat:v})}/></div>
+              </React.Fragment>
+            )}
+            {editing.freq==="daily" && (
+              <React.Fragment>
+                <label style={{fontSize:12.5,fontWeight:800,color:C.sub}}>時間メモ（任意）</label>
+                <input value={editing.note} onChange={(e)=>setEditing({...editing,note:e.target.value})} placeholder="例：15時まで" style={{width:"100%",padding:"11px 13px",fontSize:15,border:`1.5px solid ${C.line}`,borderRadius:12,margin:"7px 0 16px",outline:"none"}}/>
+              </React.Fragment>
+            )}
+            {hasPhoto(editing.freq) && <div style={{fontSize:12,color:C.cyanDeep,background:C.cyanSoft,borderRadius:10,padding:"9px 11px",marginBottom:16}}>この項目には掃除写真を添付できます（チェック画面の 📷）。</div>}
+            <div style={{display:"flex",gap:8}}>
+              {!editing._new && <button onClick={()=>deleteItem(editing.id)} style={{background:"#fff",color:C.drop,border:`1.5px solid ${C.drop}`,borderRadius:12,padding:"13px 15px",fontSize:14,fontWeight:800,cursor:"pointer"}}>削除</button>}
+              <button onClick={()=>setEditing(null)} style={{flex:1,background:C.lineSoft,color:C.sub,border:"none",borderRadius:12,padding:"13px",fontSize:14,fontWeight:800,cursor:"pointer"}}>キャンセル</button>
+              <button onClick={saveItem} style={{flex:2,background:C.cyan,color:"#062830",border:"none",borderRadius:12,padding:"13px",fontSize:14,fontWeight:800,cursor:"pointer"}}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingName && (
+        <div onClick={closeName} style={{position:"fixed",inset:0,background:"rgba(18,41,63,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:70,padding:20}}>
+          <div onClick={(e)=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,padding:22,width:"100%",maxWidth:340,boxShadow:"0 16px 48px rgba(0,0,0,.28)"}}>
+            <div style={{fontSize:16.5,fontWeight:800,marginBottom:5}}>お名前は？</div>
+            <div style={{fontSize:12.5,color:C.sub,marginBottom:15,lineHeight:1.6}}>チェックした人として記録されます。次回からは自動でこの名前で記録され、聞かれません。この端末に保存されます。</div>
+            <input autoFocus value={nameInput} onChange={(e)=>setNameInput(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&saveName()} placeholder="例：田中" style={{width:"100%",padding:"12px 13px",fontSize:15,border:`1.5px solid ${C.line}`,borderRadius:12,marginBottom:15,outline:"none"}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={closeName} style={{flex:1,background:C.lineSoft,color:C.sub,border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:800,cursor:"pointer"}}>やめる</button>
+              <button onClick={saveName} style={{flex:2,background:C.cyan,color:"#062830",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:800,cursor:"pointer"}}>{pendingCheck?"これでチェック":"保存"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
