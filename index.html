@@ -27,15 +27,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
 
-<script type="text/babel" data-presets="react">
+<script>
 const { useState, useEffect, useRef, useCallback } = React;
-
-/* ====== ここに Firebase の設定を貼り替える ====== */
 const firebaseConfig = {
   apiKey: "AIzaSyD-KNM7Ua95q6ThU0y4hzktDmfwgbUA1_4",
   authDomain: "furanken-24d07.firebaseapp.com",
@@ -46,338 +43,551 @@ const firebaseConfig = {
 };
 const configured = !/PASTE_/.test(JSON.stringify(firebaseConfig));
 let db = null, DEL = null;
-if (configured) { try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); DEL = firebase.firestore.FieldValue.delete(); } catch (e) { console.error(e); } }
-
+if (configured) {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    DEL = firebase.firestore.FieldValue.delete();
+  } catch (e) {
+    console.error(e);
+  }
+}
 const C = {
-  ink:"#12293F", inkSoft:"#22405C", cyan:"#0EA5B7", cyanDeep:"#0B7C8B", cyanSoft:"#E6F6F8",
-  paper:"#EEF2F6", card:"#FFFFFF", line:"#E2E8EF", lineSoft:"#EEF2F6",
-  done:"#157A54", doneSoft:"#E6F3EC", drop:"#B3352C", sub:"#5B6B7A", subLight:"#93A1AE",
+  ink: "#12293F",
+  inkSoft: "#22405C",
+  cyan: "#0EA5B7",
+  cyanDeep: "#0B7C8B",
+  cyanSoft: "#E6F6F8",
+  paper: "#EEF2F6",
+  card: "#FFFFFF",
+  line: "#E2E8EF",
+  lineSoft: "#EEF2F6",
+  done: "#157A54",
+  doneSoft: "#E6F3EC",
+  drop: "#B3352C",
+  sub: "#5B6B7A",
+  subLight: "#93A1AE"
 };
-const ACCENT = { "トップ":"#0EA5B7", "焼き場":"#C2410C", "麺場":"#3538CD" };
-
+const ACCENT = { "\u30C8\u30C3\u30D7": "#0EA5B7", "\u713C\u304D\u5834": "#C2410C", "\u9EBA\u5834": "#3538CD" };
 const SEED_ITEMS = [
-  { id:"d01", freq:"daily", cat:"麺場",   text:"スライサー洗う", note:"15時まで" },
-  { id:"d02", freq:"daily", cat:"麺場",   text:"裏のスープ寸胴、ガス台洗う", note:"15時まで" },
-  { id:"d03", freq:"daily", cat:"焼き場", text:"中華鍋台洗う", note:"15時まで" },
-  { id:"d04", freq:"daily", cat:"トップ", text:"窓拭き、パーテーション、看板、券売機掃除", note:"11:30まで" },
-  { id:"d05", freq:"daily", cat:"トップ", text:"ダスター洗う", note:"15時まで" },
-  { id:"d06", freq:"daily", cat:"トップ", text:"ピッチャー、カスター補充", note:"15時まで" },
-  { id:"d07", freq:"daily", cat:"トップ", text:"ピッチャー、カスター補充", note:"18時まで" },
-  { id:"c08", freq:"close", cat:"麺場", text:"冷蔵庫上、壁汚れ（スープ跳ね）" },
-  { id:"c09", freq:"close", cat:"麺場", text:"食器正しい位置に置く" },
-  { id:"c10", freq:"close", cat:"麺場", text:"バットは水気をとって重ねておく(各ポジションごとにおく)" },
-  { id:"c11", freq:"close", cat:"麺場", text:"茹で麺器、上棚(赤ジャンのとこ)、食券置き場は綺麗に洗浄され拭き漏れがない" },
-  { id:"c12", freq:"close", cat:"麺場", text:"レードル、タイマー写真通り正しい位置に置く" },
-  { id:"c13", freq:"close", cat:"麺場", text:"麺は冷蔵庫にしまう" },
-  { id:"c14", freq:"close", cat:"麺場", text:"ニュードラム、アルコール、中性洗剤、ハイター補充" },
-  { id:"c15", freq:"close", cat:"麺場", text:"チャースラ、壁、床綺麗にする" },
-  { id:"c16", freq:"close", cat:"麺場", text:"冷蔵庫内のバットは拭いてしまう、少ないものはお皿に移す、バットの蓋、ラップしているか？" },
-  { id:"c17", freq:"close", cat:"麺場", text:"冷蔵庫内、ゴミや汚れ、冷蔵庫扉綺麗か？" },
-  { id:"c18", freq:"close", cat:"麺場", text:"冷蔵庫下、茹で麺器下ゴミを流す、床磨かれているか？" },
-  { id:"c19", freq:"close", cat:"麺場", text:"ゴミ箱洗浄" },
-  { id:"c20", freq:"close", cat:"麺場", text:"測り綺麗か？" },
-  { id:"c21", freq:"close", cat:"麺場", text:"ガス栓しまっているか？" },
-  { id:"c22", freq:"close", cat:"焼き場", text:"焼き台の上清潔か？" },
-  { id:"c23", freq:"close", cat:"焼き場", text:"食器は正しい位置に置く" },
-  { id:"c24", freq:"close", cat:"焼き場", text:"バットは水気をとって重ねておく(各ポジションごとにおく)" },
-  { id:"c25", freq:"close", cat:"焼き場", text:"フライヤー、炊飯器周りは綺麗に洗浄され拭き漏れがないか？" },
-  { id:"c26", freq:"close", cat:"焼き場", text:"ボウル、ポット等正しい場所においているか？" },
-  { id:"c27", freq:"close", cat:"焼き場", text:"タイマー周り、ダクトの壁や棚、綺麗に老けているか？" },
-  { id:"c28", freq:"close", cat:"焼き場", text:"測り綺麗か？" },
-  { id:"c29", freq:"close", cat:"焼き場", text:"壁、棚、シンク内綺麗に洗浄され拭き漏れがないか？" },
-  { id:"c30", freq:"close", cat:"焼き場", text:"一斗缶は廃油以外処分しているか？" },
-  { id:"c31", freq:"close", cat:"焼き場", text:"ニュードラム、中性洗剤、アルコールの補充はできているか？" },
-  { id:"c32", freq:"close", cat:"焼き場", text:"冷蔵庫内のバットは拭いてしまう、少ないものはお皿に移す、バットの蓋、ラップしているか？" },
-  { id:"c33", freq:"close", cat:"焼き場", text:"冷蔵庫内、ゴミや汚れ、冷蔵庫扉綺麗か？" },
-  { id:"c34", freq:"close", cat:"焼き場", text:"冷蔵庫下、焼き台下は水を流して磨く" },
-  { id:"c35", freq:"close", cat:"焼き場", text:"グリストのゴミ捨て" },
-  { id:"c36", freq:"close", cat:"焼き場", text:"ゴミ箱洗浄" },
-  { id:"c37", freq:"close", cat:"焼き場", text:"フライヤーの電源、ガス栓閉めているか？" },
-  { id:"c38", freq:"close", cat:"トップ", text:"アルコール、中性洗剤、手洗い洗剤補充" },
-  { id:"c39", freq:"close", cat:"トップ", text:"次の日のダスター用意(手拭きタオルは各ポジションにセット)" },
-  { id:"c40", freq:"close", cat:"トップ", text:"洗い終わった食器は全て元の場所" },
-  { id:"c41", freq:"close", cat:"トップ", text:"シンク内、洗浄機内洗浄、拭き漏れないか？" },
-  { id:"c42", freq:"close", cat:"トップ", text:"ピッチャーは正しい場所に戻しているか？" },
-  { id:"c43", freq:"close", cat:"トップ", text:"ドリンク補充できているか？" },
-  { id:"c44", freq:"close", cat:"トップ", text:"生肉はカットされて鍋の蓋が閉じられているか？" },
-  { id:"c45", freq:"close", cat:"トップ", text:"シンク下は水を流し磨く" },
-  { id:"c46", freq:"close", cat:"トップ", text:"ダスターは中性洗剤とホワイトアップで洗い干されているか？" },
-  { id:"c47", freq:"close", cat:"トップ", text:"トイレ掃除" },
-  { id:"c48", freq:"close", cat:"トップ", text:"麺箱前に出す" },
-  { id:"c49", freq:"close", cat:"トップ", text:"ゴミ箱洗浄" },
-  { id:"c50", freq:"close", cat:"トップ", text:"洗浄機の電源を落としガス栓は全て閉まっているか？(裏)" },
-  { id:"w01", freq:"weekly", cat:"月", text:"箸入れ、レンゲ入れ、爪楊枝いれ" },
-  { id:"w02", freq:"weekly", cat:"月", text:"チャースラの刃を研ぐ" },
-  { id:"w03", freq:"weekly", cat:"月", text:"ネギスライサーの刃を研ぐ" },
-  { id:"w04", freq:"weekly", cat:"火", text:"そばタレ、お酢容器洗う" },
-  { id:"w05", freq:"weekly", cat:"火", text:"トイレ換気扇、照明、水場、床清掃" },
-  { id:"w06", freq:"weekly", cat:"火", text:"店前の排水溝、床磨く（営業時間外）" },
-  { id:"w07", freq:"weekly", cat:"水", text:"ホールの壁（黒いところ）" },
-  { id:"w08", freq:"weekly", cat:"水", text:"麺場と焼き場のダクト" },
-  { id:"w09", freq:"weekly", cat:"木", text:"バックヤード床、壁、鏡、電話機" },
-  { id:"w10", freq:"weekly", cat:"木", text:"麺場、焼き場冷蔵庫内" },
-  { id:"w11", freq:"weekly", cat:"金", text:"仕込み場冷蔵庫内" },
-  { id:"w12", freq:"weekly", cat:"金", text:"仕込み場床" },
-  { id:"w13", freq:"weekly", cat:"金", text:"仕込み場コンロ磨き" },
-  { id:"w14", freq:"weekly", cat:"金", text:"手鍋磨き、IH掃除" },
-  { id:"w15", freq:"weekly", cat:"土", text:"グレーチング" },
-  { id:"w16", freq:"weekly", cat:"土", text:"焼き場五徳（燃やす）" },
-  { id:"w17", freq:"weekly", cat:"土", text:"麺場五徳磨き" },
-  { id:"w18", freq:"weekly", cat:"日", text:"グリストラップ" },
-  { id:"w19", freq:"weekly", cat:"日", text:"まな板ハイター" },
-  { id:"w20", freq:"weekly", cat:"日", text:"包丁研ぐ" },
-  { id:"w21", freq:"weekly", cat:"日", text:"油交換" },
-  { id:"w22", freq:"weekly", cat:"日", text:"フライヤー電熱線洗浄" },
-  { id:"m01", freq:"monthly", cat:"", text:"焼き場、麺場冷蔵庫パッキン" },
-  { id:"m02", freq:"monthly", cat:"", text:"製氷機内、製氷機パッキン" },
-  { id:"m03", freq:"monthly", cat:"", text:"厨房エアコン送風口" },
-  { id:"m04", freq:"monthly", cat:"", text:"冷蔵庫フィルターカバー洗浄（各ポジション）" },
-  { id:"m05", freq:"monthly", cat:"", text:"フランケン君空気入れ" },
-  { id:"m06", freq:"monthly", cat:"", text:"ショーケース扉、レール" },
-  { id:"m07", freq:"monthly", cat:"", text:"エアコンリモコン、スイッチ（電気）" },
-  { id:"m08", freq:"monthly", cat:"", text:"カウンター下床磨き" },
-  { id:"m09", freq:"monthly", cat:"", text:"カウンター椅子掃除" },
-  { id:"m10", freq:"monthly", cat:"", text:"1Fエアコン" },
-  { id:"m11", freq:"monthly", cat:"", text:"2Fエアコン" },
-  { id:"m12", freq:"monthly", cat:"", text:"2F換気扇" },
-  { id:"m13", freq:"monthly", cat:"", text:"バックヤードエアコン、換気扇" },
-  { id:"m14", freq:"monthly", cat:"", text:"1F入り口吸気口" },
-  { id:"m15", freq:"monthly", cat:"", text:"暖簾" },
+  { id: "d01", freq: "daily", cat: "\u9EBA\u5834", text: "\u30B9\u30E9\u30A4\u30B5\u30FC\u6D17\u3046", note: "15\u6642\u307E\u3067" },
+  { id: "d02", freq: "daily", cat: "\u9EBA\u5834", text: "\u88CF\u306E\u30B9\u30FC\u30D7\u5BF8\u80F4\u3001\u30AC\u30B9\u53F0\u6D17\u3046", note: "15\u6642\u307E\u3067" },
+  { id: "d03", freq: "daily", cat: "\u713C\u304D\u5834", text: "\u4E2D\u83EF\u934B\u53F0\u6D17\u3046", note: "15\u6642\u307E\u3067" },
+  { id: "d04", freq: "daily", cat: "\u30C8\u30C3\u30D7", text: "\u7A93\u62ED\u304D\u3001\u30D1\u30FC\u30C6\u30FC\u30B7\u30E7\u30F3\u3001\u770B\u677F\u3001\u5238\u58F2\u6A5F\u6383\u9664", note: "11:30\u307E\u3067" },
+  { id: "d05", freq: "daily", cat: "\u30C8\u30C3\u30D7", text: "\u30C0\u30B9\u30BF\u30FC\u6D17\u3046", note: "15\u6642\u307E\u3067" },
+  { id: "d06", freq: "daily", cat: "\u30C8\u30C3\u30D7", text: "\u30D4\u30C3\u30C1\u30E3\u30FC\u3001\u30AB\u30B9\u30BF\u30FC\u88DC\u5145", note: "15\u6642\u307E\u3067" },
+  { id: "d07", freq: "daily", cat: "\u30C8\u30C3\u30D7", text: "\u30D4\u30C3\u30C1\u30E3\u30FC\u3001\u30AB\u30B9\u30BF\u30FC\u88DC\u5145", note: "18\u6642\u307E\u3067" },
+  { id: "c08", freq: "close", cat: "\u9EBA\u5834", text: "\u51B7\u8535\u5EAB\u4E0A\u3001\u58C1\u6C5A\u308C\uFF08\u30B9\u30FC\u30D7\u8DF3\u306D\uFF09" },
+  { id: "c09", freq: "close", cat: "\u9EBA\u5834", text: "\u98DF\u5668\u6B63\u3057\u3044\u4F4D\u7F6E\u306B\u7F6E\u304F" },
+  { id: "c10", freq: "close", cat: "\u9EBA\u5834", text: "\u30D0\u30C3\u30C8\u306F\u6C34\u6C17\u3092\u3068\u3063\u3066\u91CD\u306D\u3066\u304A\u304F(\u5404\u30DD\u30B8\u30B7\u30E7\u30F3\u3054\u3068\u306B\u304A\u304F)" },
+  { id: "c11", freq: "close", cat: "\u9EBA\u5834", text: "\u8339\u3067\u9EBA\u5668\u3001\u4E0A\u68DA(\u8D64\u30B8\u30E3\u30F3\u306E\u3068\u3053)\u3001\u98DF\u5238\u7F6E\u304D\u5834\u306F\u7DBA\u9E97\u306B\u6D17\u6D44\u3055\u308C\u62ED\u304D\u6F0F\u308C\u304C\u306A\u3044" },
+  { id: "c12", freq: "close", cat: "\u9EBA\u5834", text: "\u30EC\u30FC\u30C9\u30EB\u3001\u30BF\u30A4\u30DE\u30FC\u5199\u771F\u901A\u308A\u6B63\u3057\u3044\u4F4D\u7F6E\u306B\u7F6E\u304F" },
+  { id: "c13", freq: "close", cat: "\u9EBA\u5834", text: "\u9EBA\u306F\u51B7\u8535\u5EAB\u306B\u3057\u307E\u3046" },
+  { id: "c14", freq: "close", cat: "\u9EBA\u5834", text: "\u30CB\u30E5\u30FC\u30C9\u30E9\u30E0\u3001\u30A2\u30EB\u30B3\u30FC\u30EB\u3001\u4E2D\u6027\u6D17\u5264\u3001\u30CF\u30A4\u30BF\u30FC\u88DC\u5145" },
+  { id: "c15", freq: "close", cat: "\u9EBA\u5834", text: "\u30C1\u30E3\u30FC\u30B9\u30E9\u3001\u58C1\u3001\u5E8A\u7DBA\u9E97\u306B\u3059\u308B" },
+  { id: "c16", freq: "close", cat: "\u9EBA\u5834", text: "\u51B7\u8535\u5EAB\u5185\u306E\u30D0\u30C3\u30C8\u306F\u62ED\u3044\u3066\u3057\u307E\u3046\u3001\u5C11\u306A\u3044\u3082\u306E\u306F\u304A\u76BF\u306B\u79FB\u3059\u3001\u30D0\u30C3\u30C8\u306E\u84CB\u3001\u30E9\u30C3\u30D7\u3057\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c17", freq: "close", cat: "\u9EBA\u5834", text: "\u51B7\u8535\u5EAB\u5185\u3001\u30B4\u30DF\u3084\u6C5A\u308C\u3001\u51B7\u8535\u5EAB\u6249\u7DBA\u9E97\u304B\uFF1F" },
+  { id: "c18", freq: "close", cat: "\u9EBA\u5834", text: "\u51B7\u8535\u5EAB\u4E0B\u3001\u8339\u3067\u9EBA\u5668\u4E0B\u30B4\u30DF\u3092\u6D41\u3059\u3001\u5E8A\u78E8\u304B\u308C\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c19", freq: "close", cat: "\u9EBA\u5834", text: "\u30B4\u30DF\u7BB1\u6D17\u6D44" },
+  { id: "c20", freq: "close", cat: "\u9EBA\u5834", text: "\u6E2C\u308A\u7DBA\u9E97\u304B\uFF1F" },
+  { id: "c21", freq: "close", cat: "\u9EBA\u5834", text: "\u30AC\u30B9\u6813\u3057\u307E\u3063\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c22", freq: "close", cat: "\u713C\u304D\u5834", text: "\u713C\u304D\u53F0\u306E\u4E0A\u6E05\u6F54\u304B\uFF1F" },
+  { id: "c23", freq: "close", cat: "\u713C\u304D\u5834", text: "\u98DF\u5668\u306F\u6B63\u3057\u3044\u4F4D\u7F6E\u306B\u7F6E\u304F" },
+  { id: "c24", freq: "close", cat: "\u713C\u304D\u5834", text: "\u30D0\u30C3\u30C8\u306F\u6C34\u6C17\u3092\u3068\u3063\u3066\u91CD\u306D\u3066\u304A\u304F(\u5404\u30DD\u30B8\u30B7\u30E7\u30F3\u3054\u3068\u306B\u304A\u304F)" },
+  { id: "c25", freq: "close", cat: "\u713C\u304D\u5834", text: "\u30D5\u30E9\u30A4\u30E4\u30FC\u3001\u708A\u98EF\u5668\u5468\u308A\u306F\u7DBA\u9E97\u306B\u6D17\u6D44\u3055\u308C\u62ED\u304D\u6F0F\u308C\u304C\u306A\u3044\u304B\uFF1F" },
+  { id: "c26", freq: "close", cat: "\u713C\u304D\u5834", text: "\u30DC\u30A6\u30EB\u3001\u30DD\u30C3\u30C8\u7B49\u6B63\u3057\u3044\u5834\u6240\u306B\u304A\u3044\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c27", freq: "close", cat: "\u713C\u304D\u5834", text: "\u30BF\u30A4\u30DE\u30FC\u5468\u308A\u3001\u30C0\u30AF\u30C8\u306E\u58C1\u3084\u68DA\u3001\u7DBA\u9E97\u306B\u8001\u3051\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c28", freq: "close", cat: "\u713C\u304D\u5834", text: "\u6E2C\u308A\u7DBA\u9E97\u304B\uFF1F" },
+  { id: "c29", freq: "close", cat: "\u713C\u304D\u5834", text: "\u58C1\u3001\u68DA\u3001\u30B7\u30F3\u30AF\u5185\u7DBA\u9E97\u306B\u6D17\u6D44\u3055\u308C\u62ED\u304D\u6F0F\u308C\u304C\u306A\u3044\u304B\uFF1F" },
+  { id: "c30", freq: "close", cat: "\u713C\u304D\u5834", text: "\u4E00\u6597\u7F36\u306F\u5EC3\u6CB9\u4EE5\u5916\u51E6\u5206\u3057\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c31", freq: "close", cat: "\u713C\u304D\u5834", text: "\u30CB\u30E5\u30FC\u30C9\u30E9\u30E0\u3001\u4E2D\u6027\u6D17\u5264\u3001\u30A2\u30EB\u30B3\u30FC\u30EB\u306E\u88DC\u5145\u306F\u3067\u304D\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c32", freq: "close", cat: "\u713C\u304D\u5834", text: "\u51B7\u8535\u5EAB\u5185\u306E\u30D0\u30C3\u30C8\u306F\u62ED\u3044\u3066\u3057\u307E\u3046\u3001\u5C11\u306A\u3044\u3082\u306E\u306F\u304A\u76BF\u306B\u79FB\u3059\u3001\u30D0\u30C3\u30C8\u306E\u84CB\u3001\u30E9\u30C3\u30D7\u3057\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c33", freq: "close", cat: "\u713C\u304D\u5834", text: "\u51B7\u8535\u5EAB\u5185\u3001\u30B4\u30DF\u3084\u6C5A\u308C\u3001\u51B7\u8535\u5EAB\u6249\u7DBA\u9E97\u304B\uFF1F" },
+  { id: "c34", freq: "close", cat: "\u713C\u304D\u5834", text: "\u51B7\u8535\u5EAB\u4E0B\u3001\u713C\u304D\u53F0\u4E0B\u306F\u6C34\u3092\u6D41\u3057\u3066\u78E8\u304F" },
+  { id: "c35", freq: "close", cat: "\u713C\u304D\u5834", text: "\u30B0\u30EA\u30B9\u30C8\u306E\u30B4\u30DF\u6368\u3066" },
+  { id: "c36", freq: "close", cat: "\u713C\u304D\u5834", text: "\u30B4\u30DF\u7BB1\u6D17\u6D44" },
+  { id: "c37", freq: "close", cat: "\u713C\u304D\u5834", text: "\u30D5\u30E9\u30A4\u30E4\u30FC\u306E\u96FB\u6E90\u3001\u30AC\u30B9\u6813\u9589\u3081\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c38", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u30A2\u30EB\u30B3\u30FC\u30EB\u3001\u4E2D\u6027\u6D17\u5264\u3001\u624B\u6D17\u3044\u6D17\u5264\u88DC\u5145" },
+  { id: "c39", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u6B21\u306E\u65E5\u306E\u30C0\u30B9\u30BF\u30FC\u7528\u610F(\u624B\u62ED\u304D\u30BF\u30AA\u30EB\u306F\u5404\u30DD\u30B8\u30B7\u30E7\u30F3\u306B\u30BB\u30C3\u30C8)" },
+  { id: "c40", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u6D17\u3044\u7D42\u308F\u3063\u305F\u98DF\u5668\u306F\u5168\u3066\u5143\u306E\u5834\u6240" },
+  { id: "c41", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u30B7\u30F3\u30AF\u5185\u3001\u6D17\u6D44\u6A5F\u5185\u6D17\u6D44\u3001\u62ED\u304D\u6F0F\u308C\u306A\u3044\u304B\uFF1F" },
+  { id: "c42", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u30D4\u30C3\u30C1\u30E3\u30FC\u306F\u6B63\u3057\u3044\u5834\u6240\u306B\u623B\u3057\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c43", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u30C9\u30EA\u30F3\u30AF\u88DC\u5145\u3067\u304D\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c44", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u751F\u8089\u306F\u30AB\u30C3\u30C8\u3055\u308C\u3066\u934B\u306E\u84CB\u304C\u9589\u3058\u3089\u308C\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c45", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u30B7\u30F3\u30AF\u4E0B\u306F\u6C34\u3092\u6D41\u3057\u78E8\u304F" },
+  { id: "c46", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u30C0\u30B9\u30BF\u30FC\u306F\u4E2D\u6027\u6D17\u5264\u3068\u30DB\u30EF\u30A4\u30C8\u30A2\u30C3\u30D7\u3067\u6D17\u3044\u5E72\u3055\u308C\u3066\u3044\u308B\u304B\uFF1F" },
+  { id: "c47", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u30C8\u30A4\u30EC\u6383\u9664" },
+  { id: "c48", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u9EBA\u7BB1\u524D\u306B\u51FA\u3059" },
+  { id: "c49", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u30B4\u30DF\u7BB1\u6D17\u6D44" },
+  { id: "c50", freq: "close", cat: "\u30C8\u30C3\u30D7", text: "\u6D17\u6D44\u6A5F\u306E\u96FB\u6E90\u3092\u843D\u3068\u3057\u30AC\u30B9\u6813\u306F\u5168\u3066\u9589\u307E\u3063\u3066\u3044\u308B\u304B\uFF1F(\u88CF)" },
+  { id: "w01", freq: "weekly", cat: "\u6708", text: "\u7BB8\u5165\u308C\u3001\u30EC\u30F3\u30B2\u5165\u308C\u3001\u722A\u694A\u679D\u3044\u308C" },
+  { id: "w02", freq: "weekly", cat: "\u6708", text: "\u30C1\u30E3\u30FC\u30B9\u30E9\u306E\u5203\u3092\u7814\u3050" },
+  { id: "w03", freq: "weekly", cat: "\u6708", text: "\u30CD\u30AE\u30B9\u30E9\u30A4\u30B5\u30FC\u306E\u5203\u3092\u7814\u3050" },
+  { id: "w04", freq: "weekly", cat: "\u706B", text: "\u305D\u3070\u30BF\u30EC\u3001\u304A\u9162\u5BB9\u5668\u6D17\u3046" },
+  { id: "w05", freq: "weekly", cat: "\u706B", text: "\u30C8\u30A4\u30EC\u63DB\u6C17\u6247\u3001\u7167\u660E\u3001\u6C34\u5834\u3001\u5E8A\u6E05\u6383" },
+  { id: "w06", freq: "weekly", cat: "\u706B", text: "\u5E97\u524D\u306E\u6392\u6C34\u6E9D\u3001\u5E8A\u78E8\u304F\uFF08\u55B6\u696D\u6642\u9593\u5916\uFF09" },
+  { id: "w07", freq: "weekly", cat: "\u6C34", text: "\u30DB\u30FC\u30EB\u306E\u58C1\uFF08\u9ED2\u3044\u3068\u3053\u308D\uFF09" },
+  { id: "w08", freq: "weekly", cat: "\u6C34", text: "\u9EBA\u5834\u3068\u713C\u304D\u5834\u306E\u30C0\u30AF\u30C8" },
+  { id: "w09", freq: "weekly", cat: "\u6728", text: "\u30D0\u30C3\u30AF\u30E4\u30FC\u30C9\u5E8A\u3001\u58C1\u3001\u93E1\u3001\u96FB\u8A71\u6A5F" },
+  { id: "w10", freq: "weekly", cat: "\u6728", text: "\u9EBA\u5834\u3001\u713C\u304D\u5834\u51B7\u8535\u5EAB\u5185" },
+  { id: "w11", freq: "weekly", cat: "\u91D1", text: "\u4ED5\u8FBC\u307F\u5834\u51B7\u8535\u5EAB\u5185" },
+  { id: "w12", freq: "weekly", cat: "\u91D1", text: "\u4ED5\u8FBC\u307F\u5834\u5E8A" },
+  { id: "w13", freq: "weekly", cat: "\u91D1", text: "\u4ED5\u8FBC\u307F\u5834\u30B3\u30F3\u30ED\u78E8\u304D" },
+  { id: "w14", freq: "weekly", cat: "\u91D1", text: "\u624B\u934B\u78E8\u304D\u3001IH\u6383\u9664" },
+  { id: "w15", freq: "weekly", cat: "\u571F", text: "\u30B0\u30EC\u30FC\u30C1\u30F3\u30B0" },
+  { id: "w16", freq: "weekly", cat: "\u571F", text: "\u713C\u304D\u5834\u4E94\u5FB3\uFF08\u71C3\u3084\u3059\uFF09" },
+  { id: "w17", freq: "weekly", cat: "\u571F", text: "\u9EBA\u5834\u4E94\u5FB3\u78E8\u304D" },
+  { id: "w18", freq: "weekly", cat: "\u65E5", text: "\u30B0\u30EA\u30B9\u30C8\u30E9\u30C3\u30D7" },
+  { id: "w19", freq: "weekly", cat: "\u65E5", text: "\u307E\u306A\u677F\u30CF\u30A4\u30BF\u30FC" },
+  { id: "w20", freq: "weekly", cat: "\u65E5", text: "\u5305\u4E01\u7814\u3050" },
+  { id: "w21", freq: "weekly", cat: "\u65E5", text: "\u6CB9\u4EA4\u63DB" },
+  { id: "w22", freq: "weekly", cat: "\u65E5", text: "\u30D5\u30E9\u30A4\u30E4\u30FC\u96FB\u71B1\u7DDA\u6D17\u6D44" },
+  { id: "m01", freq: "monthly", cat: "", text: "\u713C\u304D\u5834\u3001\u9EBA\u5834\u51B7\u8535\u5EAB\u30D1\u30C3\u30AD\u30F3" },
+  { id: "m02", freq: "monthly", cat: "", text: "\u88FD\u6C37\u6A5F\u5185\u3001\u88FD\u6C37\u6A5F\u30D1\u30C3\u30AD\u30F3" },
+  { id: "m03", freq: "monthly", cat: "", text: "\u53A8\u623F\u30A8\u30A2\u30B3\u30F3\u9001\u98A8\u53E3" },
+  { id: "m04", freq: "monthly", cat: "", text: "\u51B7\u8535\u5EAB\u30D5\u30A3\u30EB\u30BF\u30FC\u30AB\u30D0\u30FC\u6D17\u6D44\uFF08\u5404\u30DD\u30B8\u30B7\u30E7\u30F3\uFF09" },
+  { id: "m05", freq: "monthly", cat: "", text: "\u30D5\u30E9\u30F3\u30B1\u30F3\u541B\u7A7A\u6C17\u5165\u308C" },
+  { id: "m06", freq: "monthly", cat: "", text: "\u30B7\u30E7\u30FC\u30B1\u30FC\u30B9\u6249\u3001\u30EC\u30FC\u30EB" },
+  { id: "m07", freq: "monthly", cat: "", text: "\u30A8\u30A2\u30B3\u30F3\u30EA\u30E2\u30B3\u30F3\u3001\u30B9\u30A4\u30C3\u30C1\uFF08\u96FB\u6C17\uFF09" },
+  { id: "m08", freq: "monthly", cat: "", text: "\u30AB\u30A6\u30F3\u30BF\u30FC\u4E0B\u5E8A\u78E8\u304D" },
+  { id: "m09", freq: "monthly", cat: "", text: "\u30AB\u30A6\u30F3\u30BF\u30FC\u6905\u5B50\u6383\u9664" },
+  { id: "m10", freq: "monthly", cat: "", text: "1F\u30A8\u30A2\u30B3\u30F3" },
+  { id: "m11", freq: "monthly", cat: "", text: "2F\u30A8\u30A2\u30B3\u30F3" },
+  { id: "m12", freq: "monthly", cat: "", text: "2F\u63DB\u6C17\u6247" },
+  { id: "m13", freq: "monthly", cat: "", text: "\u30D0\u30C3\u30AF\u30E4\u30FC\u30C9\u30A8\u30A2\u30B3\u30F3\u3001\u63DB\u6C17\u6247" },
+  { id: "m14", freq: "monthly", cat: "", text: "1F\u5165\u308A\u53E3\u5438\u6C17\u53E3" },
+  { id: "m15", freq: "monthly", cat: "", text: "\u6696\u7C3E" }
 ];
-
-const CATS = ["トップ","焼き場","麺場"];
-const DAYS = ["月","火","水","木","金","土","日"];
+const CATS = ["\u30C8\u30C3\u30D7", "\u713C\u304D\u5834", "\u9EBA\u5834"];
+const DAYS = ["\u6708", "\u706B", "\u6C34", "\u6728", "\u91D1", "\u571F", "\u65E5"];
 const TABS = [
-  { key:"daily", label:"デイリー" }, { key:"close", label:"クローズ" },
-  { key:"weekly", label:"ウィークリー" }, { key:"monthly", label:"マンスリー" },
+  { key: "daily", label: "\u30C7\u30A4\u30EA\u30FC" },
+  { key: "close", label: "\u30AF\u30ED\u30FC\u30BA" },
+  { key: "weekly", label: "\u30A6\u30A3\u30FC\u30AF\u30EA\u30FC" },
+  { key: "monthly", label: "\u30DE\u30F3\u30B9\u30EA\u30FC" }
 ];
-const FREQS = ["daily","close","weekly","monthly"];
-const WD = ["日","月","火","水","木","金","土"];
-const cadence = (f)=> f==="weekly"?"weekly": f==="monthly"?"monthly":"daily";
-const hasPhoto = (f)=> f==="weekly" || f==="monthly";
-const pad = (n)=> String(n).padStart(2,"0");
-const dateKey = (d=new Date())=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const monthKey = (d=new Date())=> `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
-function weekKey(d=new Date()){ const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=t.getUTCDay()||7; t.setUTCDate(t.getUTCDate()+4-day); const ys=new Date(Date.UTC(t.getUTCFullYear(),0,1)); const w=Math.ceil(((t-ys)/86400000+1)/7); return `${t.getUTCFullYear()}-W${pad(w)}`; }
-const periodSuffix = (f)=>{ const c=cadence(f); return c==="daily"?dateKey():c==="weekly"?weekKey():monthKey(); };
-function periodLabel(f){ const c=cadence(f), d=new Date(); if(c==="daily") return `${d.getMonth()+1}月${d.getDate()}日（${WD[d.getDay()]}）`; if(c==="weekly") return `今週 ${weekKey()}`; return `${d.getFullYear()}年${d.getMonth()+1}月`; }
-function histLabel(f, s){ const c=cadence(f); if(c==="daily"){ const [y,m,d]=s.split("-").map(Number); const dt=new Date(y,m-1,d); return `${m}/${d}（${WD[dt.getDay()]}）`; } if(c==="weekly") return s.replace("-W"," 第")+"週"; const [,m]=s.split("-"); return `${Number(m)}月`; }
-const nowStamp = ()=>{ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-
-// ---- localStorage helpers (未設定時のフォールバック) ----
-const lsGet=(k,def)=>{ try{const v=localStorage.getItem(k); return v?JSON.parse(v):def;}catch(e){return def;} };
-const lsSet=(k,v)=>{ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){console.error(e);} };
-const bId=(f)=> f+"__"+periodSuffix(f);
-
-function downscaleImage(file, maxDim=1024, quality=0.55){
-  return new Promise((resolve,reject)=>{
-    const r=new FileReader();
-    r.onerror=()=>reject(new Error("read"));
-    r.onload=()=>{ const img=new Image(); img.onerror=()=>reject(new Error("img"));
-      img.onload=()=>{ let w=img.width,h=img.height; const s=Math.min(1,maxDim/Math.max(w,h)); w=Math.round(w*s); h=Math.round(h*s);
-        const cv=document.createElement("canvas"); cv.width=w; cv.height=h; cv.getContext("2d").drawImage(img,0,0,w,h);
-        resolve(cv.toDataURL("image/jpeg",quality)); };
-      img.src=r.result; };
+const FREQS = ["daily", "close", "weekly", "monthly"];
+const WD = ["\u65E5", "\u6708", "\u706B", "\u6C34", "\u6728", "\u91D1", "\u571F"];
+const cadence = (f) => f === "weekly" ? "weekly" : f === "monthly" ? "monthly" : "daily";
+const hasPhoto = (f) => f === "weekly" || f === "monthly";
+const pad = (n) => String(n).padStart(2, "0");
+const dateKey = (d = /* @__PURE__ */ new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const monthKey = (d = /* @__PURE__ */ new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+function weekKey(d = /* @__PURE__ */ new Date()) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const w = Math.ceil(((t - ys) / 864e5 + 1) / 7);
+  return `${t.getUTCFullYear()}-W${pad(w)}`;
+}
+const periodSuffix = (f) => {
+  const c = cadence(f);
+  return c === "daily" ? dateKey() : c === "weekly" ? weekKey() : monthKey();
+};
+function periodLabel(f) {
+  const c = cadence(f), d = /* @__PURE__ */ new Date();
+  if (c === "daily") return `${d.getMonth() + 1}\u6708${d.getDate()}\u65E5\uFF08${WD[d.getDay()]}\uFF09`;
+  if (c === "weekly") return `\u4ECA\u9031 ${weekKey()}`;
+  return `${d.getFullYear()}\u5E74${d.getMonth() + 1}\u6708`;
+}
+function histLabel(f, s) {
+  const c = cadence(f);
+  if (c === "daily") {
+    const [y, m2, d] = s.split("-").map(Number);
+    const dt = new Date(y, m2 - 1, d);
+    return `${m2}/${d}\uFF08${WD[dt.getDay()]}\uFF09`;
+  }
+  if (c === "weekly") return s.replace("-W", " \u7B2C") + "\u9031";
+  const [, m] = s.split("-");
+  return `${Number(m)}\u6708`;
+}
+const nowStamp = () => {
+  const d = /* @__PURE__ */ new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const lsGet = (k, def) => {
+  try {
+    const v = localStorage.getItem(k);
+    return v ? JSON.parse(v) : def;
+  } catch (e) {
+    return def;
+  }
+};
+const lsSet = (k, v) => {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch (e) {
+    console.error(e);
+  }
+};
+const bId = (f) => f + "__" + periodSuffix(f);
+function downscaleImage(file, maxDim = 1024, quality = 0.55) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("read"));
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("img"));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        const s = Math.min(1, maxDim / Math.max(w, h));
+        w = Math.round(w * s);
+        h = Math.round(h * s);
+        const cv = document.createElement("canvas");
+        cv.width = w;
+        cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(cv.toDataURL("image/jpeg", quality));
+      };
+      img.src = r.result;
+    };
     r.readAsDataURL(file);
   });
 }
-
-function Ring({ pct, size=62, stroke=7, color }){
-  const r=(size-stroke)/2, c=2*Math.PI*r, off=c*(1-Math.max(0,Math.min(100,pct))/100), mid=size/2;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{flexShrink:0}}>
-      <circle cx={mid} cy={mid} r={r} fill="none" stroke={C.lineSoft} strokeWidth={stroke}/>
-      <circle cx={mid} cy={mid} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${mid} ${mid})`} style={{transition:"stroke-dashoffset .45s ease"}}/>
-      <text x={mid} y={mid-1} textAnchor="middle" dominantBaseline="central" fontSize="18" fontWeight="800" fill={C.ink} style={{fontVariantNumeric:"tabular-nums"}}>{pct}</text>
-      <text x={mid} y={mid+13} textAnchor="middle" fontSize="8.5" fontWeight="700" fill={C.subLight}>％</text>
-    </svg>
-  );
+function Ring({ pct, size = 62, stroke = 7, color }) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, off = c * (1 - Math.max(0, Math.min(100, pct)) / 100), mid = size / 2;
+  return /* @__PURE__ */ React.createElement("svg", { width: size, height: size, viewBox: `0 0 ${size} ${size}`, style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("circle", { cx: mid, cy: mid, r, fill: "none", stroke: C.lineSoft, strokeWidth: stroke }), /* @__PURE__ */ React.createElement("circle", { cx: mid, cy: mid, r, fill: "none", stroke: color, strokeWidth: stroke, strokeLinecap: "round", strokeDasharray: c, strokeDashoffset: off, transform: `rotate(-90 ${mid} ${mid})`, style: { transition: "stroke-dashoffset .45s ease" } }), /* @__PURE__ */ React.createElement("text", { x: mid, y: mid - 1, textAnchor: "middle", dominantBaseline: "central", fontSize: "18", fontWeight: "800", fill: C.ink, style: { fontVariantNumeric: "tabular-nums" } }, pct), /* @__PURE__ */ React.createElement("text", { x: mid, y: mid + 13, textAnchor: "middle", fontSize: "8.5", fontWeight: "700", fill: C.subLight }, "\uFF05"));
 }
-
-function App(){
-  const [me,setMe]=useState(lsGet("fk_me",""));
-  const [nameInput,setNameInput]=useState("");
-  const [editingName,setEditingName]=useState(false);
-  const [pendingCheck,setPendingCheck]=useState(null);
-  const [tab,setTab]=useState("daily");
-  const [buckets,setBuckets]=useState({daily:{},close:{},weekly:{},monthly:{}});
-  const [items,setItems]=useState(SEED_ITEMS);
-  const [editMode,setEditMode]=useState(false);
-  const [editing,setEditing]=useState(null);
-  const [synced,setSynced]=useState(null);
-  const [histOpen,setHistOpen]=useState(false);
-  const [histFreq,setHistFreq]=useState("weekly");
-  const [histRows,setHistRows]=useState([]);
-  const [histLoading,setHistLoading]=useState(false);
-  const [histExpanded,setHistExpanded]=useState(null);
-  const [photoTarget,setPhotoTarget]=useState(null);
-  const [viewer,setViewer]=useState(null);
-  const [barH,setBarH]=useState(94);
-  const [pkey,setPkey]=useState(FREQS.map(periodSuffix).join("|"));
-  const fileRef=useRef(null);
-  const barRef=useRef(null);
-  const photoCache=useRef({});
-
-  useEffect(()=>{ const el=barRef.current; if(!el) return; const upd=()=>setBarH(el.offsetHeight); upd();
-    let ro; if(typeof ResizeObserver!=="undefined"){ ro=new ResizeObserver(upd); ro.observe(el); } window.addEventListener("resize",upd);
-    return ()=>{ if(ro) ro.disconnect(); window.removeEventListener("resize",upd); }; },[editMode]);
-
-  useEffect(()=>{ const t=setInterval(()=>{ const k=FREQS.map(periodSuffix).join("|"); setPkey(p=> p!==k?k:p); }, 30000); return ()=>clearInterval(t); },[]);
-
-  // ---- データ購読 ----
-  useEffect(()=>{
-    if(configured && db){
-      const unsub=[];
-      unsub.push(db.collection("meta").doc("items").onSnapshot(snap=>{
-        if(snap.exists && Array.isArray(snap.data().list)) setItems(snap.data().list);
-        else { db.collection("meta").doc("items").set({list:SEED_ITEMS}).catch(e=>console.error(e)); setItems(SEED_ITEMS); }
-      }, e=>console.error(e)));
-      FREQS.forEach(f=>{
-        unsub.push(db.collection("buckets").doc(bId(f)).onSnapshot(snap=>{
-          setBuckets(p=>({...p,[f]: snap.exists?(snap.data().checks||{}):{}}));
-          setSynced(new Date());
-        }, e=>console.error(e)));
+function CleaningApp() {
+  const [me, setMe] = useState(lsGet("fk_me", ""));
+  const [nameInput, setNameInput] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [pendingCheck, setPendingCheck] = useState(null);
+  const [tab, setTab] = useState("daily");
+  const [buckets, setBuckets] = useState({ daily: {}, close: {}, weekly: {}, monthly: {} });
+  const [items, setItems] = useState(SEED_ITEMS);
+  const [editMode, setEditMode] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [synced, setSynced] = useState(null);
+  const [histOpen, setHistOpen] = useState(false);
+  const [histFreq, setHistFreq] = useState("weekly");
+  const [histRows, setHistRows] = useState([]);
+  const [histLoading, setHistLoading] = useState(false);
+  const [histExpanded, setHistExpanded] = useState(null);
+  const [photoTarget, setPhotoTarget] = useState(null);
+  const [viewer, setViewer] = useState(null);
+  const [barH, setBarH] = useState(94);
+  const [pkey, setPkey] = useState(FREQS.map(periodSuffix).join("|"));
+  const fileRef = useRef(null);
+  const barRef = useRef(null);
+  const photoCache = useRef({});
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const upd = () => setBarH(el.offsetHeight);
+    upd();
+    let ro;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(upd);
+      ro.observe(el);
+    }
+    window.addEventListener("resize", upd);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", upd);
+    };
+  }, [editMode]);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const k = FREQS.map(periodSuffix).join("|");
+      setPkey((p) => p !== k ? k : p);
+    }, 3e4);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (configured && db) {
+      const unsub = [];
+      unsub.push(db.collection("meta").doc("items").onSnapshot((snap) => {
+        if (snap.exists && Array.isArray(snap.data().list)) setItems(snap.data().list);
+        else {
+          db.collection("meta").doc("items").set({ list: SEED_ITEMS }).catch((e) => console.error(e));
+          setItems(SEED_ITEMS);
+        }
+      }, (e) => console.error(e)));
+      FREQS.forEach((f) => {
+        unsub.push(db.collection("buckets").doc(bId(f)).onSnapshot((snap) => {
+          setBuckets((p) => ({ ...p, [f]: snap.exists ? snap.data().checks || {} : {} }));
+          setSynced(/* @__PURE__ */ new Date());
+        }, (e) => console.error(e)));
       });
-      return ()=> unsub.forEach(u=>u&&u());
+      return () => unsub.forEach((u) => u && u());
     } else {
       setItems(lsGet("fk_items", SEED_ITEMS));
-      const b={}; FREQS.forEach(f=> b[f]=lsGet("fk_b_"+bId(f),{})); setBuckets(b);
-      setSynced(new Date());
+      const b = {};
+      FREQS.forEach((f) => b[f] = lsGet("fk_b_" + bId(f), {}));
+      setBuckets(b);
+      setSynced(/* @__PURE__ */ new Date());
     }
-  },[pkey]);
-
-  // ---- 書き込み ----
-  const persistItems=async(next)=>{ setItems(next); if(configured&&db) await db.collection("meta").doc("items").set({list:next}); else lsSet("fk_items",next); };
-
-  const applyCheck=async(freq,id,rec)=>{
-    setBuckets(p=>{ const cur={...(p[freq]||{})}; if(rec) cur[id]=rec; else delete cur[id]; return {...p,[freq]:cur}; });
-    if(configured&&db){
-      if(rec) await db.collection("buckets").doc(bId(freq)).set({freq, sfx:periodSuffix(freq), checks:{[id]:rec}},{merge:true}).catch(e=>console.error(e));
-      else await db.collection("buckets").doc(bId(freq)).update({["checks."+id]:DEL}).catch(()=>{});
+  }, [pkey]);
+  const persistItems = async (next) => {
+    setItems(next);
+    if (configured && db) await db.collection("meta").doc("items").set({ list: next });
+    else lsSet("fk_items", next);
+  };
+  const applyCheck = async (freq, id, rec) => {
+    setBuckets((p) => {
+      const cur = { ...p[freq] || {} };
+      if (rec) cur[id] = rec;
+      else delete cur[id];
+      return { ...p, [freq]: cur };
+    });
+    if (configured && db) {
+      if (rec) await db.collection("buckets").doc(bId(freq)).set({ freq, sfx: periodSuffix(freq), checks: { [id]: rec } }, { merge: true }).catch((e) => console.error(e));
+      else await db.collection("buckets").doc(bId(freq)).update({ ["checks." + id]: DEL }).catch(() => {
+      });
     } else {
-      const k="fk_b_"+bId(freq); const cur=lsGet(k,{}); if(rec) cur[id]=rec; else delete cur[id]; lsSet(k,cur);
+      const k = "fk_b_" + bId(freq);
+      const cur = lsGet(k, {});
+      if (rec) cur[id] = rec;
+      else delete cur[id];
+      lsSet(k, cur);
     }
   };
-
-  const delPhoto=async(freq,sfx,id)=>{
-    delete photoCache.current[freq+"__"+sfx+"__"+id];
-    if(configured&&db) await db.collection("photos").doc(freq+"__"+sfx+"__"+id).delete().catch(()=>{});
-    else localStorage.removeItem("fk_p_"+freq+"__"+sfx+"__"+id);
+  const delPhoto = async (freq, sfx, id) => {
+    delete photoCache.current[freq + "__" + sfx + "__" + id];
+    if (configured && db) await db.collection("photos").doc(freq + "__" + sfx + "__" + id).delete().catch(() => {
+    });
+    else localStorage.removeItem("fk_p_" + freq + "__" + sfx + "__" + id);
   };
-
-  const doToggle=async(freq,id,name)=>{
+  const doToggle = async (freq, id, name) => {
     const rec = buckets[freq] && buckets[freq][id];
-    if(rec){ const hadPic=rec.pic; await applyCheck(freq,id,null); if(hadPic) await delPhoto(freq,periodSuffix(freq),id); }
-    else { await applyCheck(freq,id,{by:name,at:nowStamp()}); }
+    if (rec) {
+      const hadPic = rec.pic;
+      await applyCheck(freq, id, null);
+      if (hadPic) await delPhoto(freq, periodSuffix(freq), id);
+    } else {
+      await applyCheck(freq, id, { by: name, at: nowStamp() });
+    }
   };
-  const toggle=(freq,id)=>{ if(!me){ setPendingCheck({freq,id}); setNameInput(""); setEditingName(true); return; } doToggle(freq,id,me); };
-
-  const saveName=async()=>{ const n=nameInput.trim(); if(!n) return; setMe(n); setEditingName(false); lsSet("fk_me",n); if(pendingCheck){ const pc=pendingCheck; setPendingCheck(null); await doToggle(pc.freq,pc.id,n); } };
-  const closeName=()=>{ setEditingName(false); setPendingCheck(null); };
-
-  const resetFreq=async(freq)=>{
-    if(!window.confirm(`${TABS.find(t=>t.key===freq).label}のチェックを全部リセットします。写真も消えます。よろしいですか？`)) return;
-    const cur=buckets[freq]||{};
-    await Promise.all(Object.keys(cur).filter(id=>cur[id]&&cur[id].pic).map(id=>delPhoto(freq,periodSuffix(freq),id)));
-    setBuckets(p=>({...p,[freq]:{}}));
-    if(configured&&db) await db.collection("buckets").doc(bId(freq)).set({freq,sfx:periodSuffix(freq),checks:{}}).catch(e=>console.error(e));
-    else lsSet("fk_b_"+bId(freq),{});
+  const toggle = (freq, id) => {
+    if (!me) {
+      setPendingCheck({ freq, id });
+      setNameInput("");
+      setEditingName(true);
+      return;
+    }
+    doToggle(freq, id, me);
   };
-
-  const pickPhoto=(freq,id)=>{ if(!me){ setNameInput(""); setEditingName(true); return; } setPhotoTarget({freq,id}); if(fileRef.current){ fileRef.current.value=""; fileRef.current.click(); } };
-  const onFilePicked=async(e)=>{
-    const file=e.target.files&&e.target.files[0]; e.target.value=""; const t=photoTarget; setPhotoTarget(null);
-    if(!file||!t) return;
-    let dataURL; try{ dataURL=await downscaleImage(file); }catch(err){ window.alert("写真の読み込みに失敗しました。もう一度お試しください。"); return; }
-    if(dataURL.length>950000){ try{ dataURL=await downscaleImage(file,800,0.5);}catch(e){} }
-    if(dataURL.length>950000){ window.alert("写真が大きすぎます。別の写真でお試しください。"); return; }
-    const sfx=periodSuffix(t.freq); photoCache.current[t.freq+"__"+sfx+"__"+t.id]=dataURL;
-    if(configured&&db) await db.collection("photos").doc(t.freq+"__"+sfx+"__"+t.id).set({data:dataURL}).catch(e=>{console.error(e); window.alert("写真の保存に失敗しました。");});
-    else lsSet("fk_p_"+t.freq+"__"+sfx+"__"+t.id, dataURL);
-    const prev=buckets[t.freq]&&buckets[t.freq][t.id];
-    await applyCheck(t.freq,t.id,{by:(prev&&prev.by)||me, at:(prev&&prev.at)||nowStamp(), pic:true});
+  const saveName = async () => {
+    const n = nameInput.trim();
+    if (!n) return;
+    setMe(n);
+    setEditingName(false);
+    lsSet("fk_me", n);
+    if (pendingCheck) {
+      const pc = pendingCheck;
+      setPendingCheck(null);
+      await doToggle(pc.freq, pc.id, n);
+    }
   };
-  const getPhoto=async(freq,sfx,id)=>{
-    const ck=photoCache.current[freq+"__"+sfx+"__"+id]; if(ck) return ck;
-    if(configured&&db){ try{ const d=await db.collection("photos").doc(freq+"__"+sfx+"__"+id).get(); const v=d.exists?d.data().data:null; if(v) photoCache.current[freq+"__"+sfx+"__"+id]=v; return v; }catch(e){ return null; } }
-    return lsGet("fk_p_"+freq+"__"+sfx+"__"+id,null);
+  const closeName = () => {
+    setEditingName(false);
+    setPendingCheck(null);
   };
-  const openPhoto=async(freq,id,sfx,canDelete)=>{
-    const suffix=sfx||periodSuffix(freq); const cached=photoCache.current[freq+"__"+suffix+"__"+id];
-    setViewer({freq,id,sfx:suffix,canDelete:!!canDelete,src:cached||null,loading:!cached});
-    const src=await getPhoto(freq,suffix,id);
-    setViewer(v=> v&&v.freq===freq&&v.id===id ? {...v,src:src||cached||null,loading:false}:v);
+  const resetFreq = async (freq) => {
+    if (!window.confirm(`${TABS.find((t) => t.key === freq).label}\u306E\u30C1\u30A7\u30C3\u30AF\u3092\u5168\u90E8\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3059\u3002\u5199\u771F\u3082\u6D88\u3048\u307E\u3059\u3002\u3088\u308D\u3057\u3044\u3067\u3059\u304B\uFF1F`)) return;
+    const cur = buckets[freq] || {};
+    await Promise.all(Object.keys(cur).filter((id) => cur[id] && cur[id].pic).map((id) => delPhoto(freq, periodSuffix(freq), id)));
+    setBuckets((p) => ({ ...p, [freq]: {} }));
+    if (configured && db) await db.collection("buckets").doc(bId(freq)).set({ freq, sfx: periodSuffix(freq), checks: {} }).catch((e) => console.error(e));
+    else lsSet("fk_b_" + bId(freq), {});
   };
-  const deletePhoto=async()=>{
-    if(!viewer) return; if(!window.confirm("この写真を削除します。よろしいですか？")) return;
-    const {freq,id,sfx}=viewer; await delPhoto(freq,sfx,id);
-    const cur=buckets[freq]&&buckets[freq][id];
-    if(cur){ await applyCheck(freq,id,{by:cur.by,at:cur.at}); }
+  const pickPhoto = (freq, id) => {
+    if (!me) {
+      setNameInput("");
+      setEditingName(true);
+      return;
+    }
+    setPhotoTarget({ freq, id });
+    if (fileRef.current) {
+      fileRef.current.value = "";
+      fileRef.current.click();
+    }
+  };
+  const onFilePicked = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    const t = photoTarget;
+    setPhotoTarget(null);
+    if (!file || !t) return;
+    let dataURL;
+    try {
+      dataURL = await downscaleImage(file);
+    } catch (err) {
+      window.alert("\u5199\u771F\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u3082\u3046\u4E00\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002");
+      return;
+    }
+    if (dataURL.length > 95e4) {
+      try {
+        dataURL = await downscaleImage(file, 800, 0.5);
+      } catch (e2) {
+      }
+    }
+    if (dataURL.length > 95e4) {
+      window.alert("\u5199\u771F\u304C\u5927\u304D\u3059\u304E\u307E\u3059\u3002\u5225\u306E\u5199\u771F\u3067\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002");
+      return;
+    }
+    const sfx = periodSuffix(t.freq);
+    photoCache.current[t.freq + "__" + sfx + "__" + t.id] = dataURL;
+    if (configured && db) await db.collection("photos").doc(t.freq + "__" + sfx + "__" + t.id).set({ data: dataURL }).catch((e2) => {
+      console.error(e2);
+      window.alert("\u5199\u771F\u306E\u4FDD\u5B58\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002");
+    });
+    else lsSet("fk_p_" + t.freq + "__" + sfx + "__" + t.id, dataURL);
+    const prev = buckets[t.freq] && buckets[t.freq][t.id];
+    await applyCheck(t.freq, t.id, { by: prev && prev.by || me, at: prev && prev.at || nowStamp(), pic: true });
+  };
+  const getPhoto = async (freq, sfx, id) => {
+    const ck = photoCache.current[freq + "__" + sfx + "__" + id];
+    if (ck) return ck;
+    if (configured && db) {
+      try {
+        const d = await db.collection("photos").doc(freq + "__" + sfx + "__" + id).get();
+        const v = d.exists ? d.data().data : null;
+        if (v) photoCache.current[freq + "__" + sfx + "__" + id] = v;
+        return v;
+      } catch (e) {
+        return null;
+      }
+    }
+    return lsGet("fk_p_" + freq + "__" + sfx + "__" + id, null);
+  };
+  const openPhoto = async (freq, id, sfx, canDelete) => {
+    const suffix = sfx || periodSuffix(freq);
+    const cached = photoCache.current[freq + "__" + suffix + "__" + id];
+    setViewer({ freq, id, sfx: suffix, canDelete: !!canDelete, src: cached || null, loading: !cached });
+    const src = await getPhoto(freq, suffix, id);
+    setViewer((v) => v && v.freq === freq && v.id === id ? { ...v, src: src || cached || null, loading: false } : v);
+  };
+  const deletePhoto = async () => {
+    if (!viewer) return;
+    if (!window.confirm("\u3053\u306E\u5199\u771F\u3092\u524A\u9664\u3057\u307E\u3059\u3002\u3088\u308D\u3057\u3044\u3067\u3059\u304B\uFF1F")) return;
+    const { freq, id, sfx } = viewer;
+    await delPhoto(freq, sfx, id);
+    const cur = buckets[freq] && buckets[freq][id];
+    if (cur) {
+      await applyCheck(freq, id, { by: cur.by, at: cur.at });
+    }
     setViewer(null);
   };
-
-  const defaultCat=(f)=> f==="weekly"?"月": f==="monthly"?"":"トップ";
-  const openNew=()=> setEditing({id:"x"+Date.now(),cat:defaultCat(tab),text:"",freq:tab,note:"",_new:true});
-  const openEdit=(it)=> setEditing({...it,note:it.note||""});
-  const saveItem=async()=>{ const e=editing; if(!e.text.trim()) return;
-    const clean={id:e.id,freq:e.freq,text:e.text.trim(),cat:e.freq==="monthly"?"":(e.cat||defaultCat(e.freq)),note:e.freq==="daily"?(e.note||"").trim():""};
-    const exists=items.some(i=>i.id===clean.id); const next=exists?items.map(i=>i.id===clean.id?clean:i):[...items,clean];
-    setEditing(null); await persistItems(next); };
-  const deleteItem=async(id)=>{ if(!window.confirm("この項目を削除します。よろしいですか？")) return; setEditing(null); await persistItems(items.filter(i=>i.id!==id)); };
-  const move=async(id,dir)=>{ const it=items.find(i=>i.id===id); const sib=items.filter(x=>x.freq===it.freq&&x.cat===it.cat); const si=sib.findIndex(x=>x.id===id); const tgt=sib[si+dir]; if(!tgt) return;
-    const a=items.findIndex(x=>x.id===id), b=items.findIndex(x=>x.id===tgt.id); const next=items.slice(); const tmp=next[a]; next[a]=next[b]; next[b]=tmp; await persistItems(next); };
-  const loadSeed=async()=>{ if(!window.confirm("フラン軒の掃除表を読み込みます。今の項目は置き換わります。よろしいですか？")) return; await persistItems(SEED_ITEMS.map(x=>({...x}))); };
-  const clearAll=async()=>{ if(!window.confirm("全項目を削除して白紙にします。よろしいですか？（チェック済みの記録は残ります）")) return; await persistItems([]); };
-
-  const loadHistory=useCallback(async(freq)=>{
+  const defaultCat = (f) => f === "weekly" ? "\u6708" : f === "monthly" ? "" : "\u30C8\u30C3\u30D7";
+  const openNew = () => setEditing({ id: "x" + Date.now(), cat: defaultCat(tab), text: "", freq: tab, note: "", _new: true });
+  const openEdit = (it) => setEditing({ ...it, note: it.note || "" });
+  const saveItem = async () => {
+    const e = editing;
+    if (!e.text.trim()) return;
+    const clean = { id: e.id, freq: e.freq, text: e.text.trim(), cat: e.freq === "monthly" ? "" : e.cat || defaultCat(e.freq), note: e.freq === "daily" ? (e.note || "").trim() : "" };
+    const exists = items.some((i) => i.id === clean.id);
+    const next = exists ? items.map((i) => i.id === clean.id ? clean : i) : [...items, clean];
+    setEditing(null);
+    await persistItems(next);
+  };
+  const deleteItem = async (id) => {
+    if (!window.confirm("\u3053\u306E\u9805\u76EE\u3092\u524A\u9664\u3057\u307E\u3059\u3002\u3088\u308D\u3057\u3044\u3067\u3059\u304B\uFF1F")) return;
+    setEditing(null);
+    await persistItems(items.filter((i) => i.id !== id));
+  };
+  const move = async (id, dir) => {
+    const it = items.find((i) => i.id === id);
+    const sib = items.filter((x) => x.freq === it.freq && x.cat === it.cat);
+    const si = sib.findIndex((x) => x.id === id);
+    const tgt = sib[si + dir];
+    if (!tgt) return;
+    const a = items.findIndex((x) => x.id === id), b = items.findIndex((x) => x.id === tgt.id);
+    const next = items.slice();
+    const tmp = next[a];
+    next[a] = next[b];
+    next[b] = tmp;
+    await persistItems(next);
+  };
+  const loadSeed = async () => {
+    if (!window.confirm("\u30D5\u30E9\u30F3\u8ED2\u306E\u6383\u9664\u8868\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3059\u3002\u4ECA\u306E\u9805\u76EE\u306F\u7F6E\u304D\u63DB\u308F\u308A\u307E\u3059\u3002\u3088\u308D\u3057\u3044\u3067\u3059\u304B\uFF1F")) return;
+    await persistItems(SEED_ITEMS.map((x) => ({ ...x })));
+  };
+  const clearAll = async () => {
+    if (!window.confirm("\u5168\u9805\u76EE\u3092\u524A\u9664\u3057\u3066\u767D\u7D19\u306B\u3057\u307E\u3059\u3002\u3088\u308D\u3057\u3044\u3067\u3059\u304B\uFF1F\uFF08\u30C1\u30A7\u30C3\u30AF\u6E08\u307F\u306E\u8A18\u9332\u306F\u6B8B\u308A\u307E\u3059\uFF09")) return;
+    await persistItems([]);
+  };
+  const loadHistory = useCallback(async (freq) => {
     setHistLoading(true);
-    const total=items.filter(i=>i.freq===freq).length;
-    let raw=[];
-    if(configured&&db){ try{ const qs=await db.collection("buckets").where("freq","==",freq).get(); raw=qs.docs.map(d=>{const x=d.data(); return {sfx:x.sfx, checks:x.checks||{}};}); }catch(e){ console.error(e); } }
-    else { for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); const pre="fk_b_"+freq+"__"; if(k&&k.indexOf(pre)===0){ raw.push({sfx:k.slice(pre.length), checks:lsGet(k,{})}); } } }
-    const rows=raw.filter(r=>Object.keys(r.checks).length>0).sort((a,b)=>b.sfx.localeCompare(a.sfx)).slice(0,90)
-      .map(r=>({sfx:r.sfx,label:histLabel(freq,r.sfx),done:Object.keys(r.checks).length,total,rec:r.checks}));
-    setHistRows(rows); setHistLoading(false);
-  },[items]);
-  const openHistory=async()=>{ setHistExpanded(null); setHistFreq(tab); setHistOpen(true); await loadHistory(tab); };
-  const switchHistFreq=async(f)=>{ setHistFreq(f); setHistExpanded(null); await loadHistory(f); };
-
-  const itemText=(id)=>{ const it=items.find(x=>x.id===id); return it?it.text:"#"+id; };
-  const itemsOf=(f)=> items.filter(i=>i.freq===f);
-  const doneCount=(f)=> itemsOf(f).filter(i=> buckets[f]&&buckets[f][i.id]).length;
-  const totalCount=(f)=> itemsOf(f).length;
-
-  const tabItems=itemsOf(tab); const dc=doneCount(tab), tc=totalCount(tab), pct=tc?Math.round(dc/tc*100):0;
-  const showCam=hasPhoto(tab); const emptyView=!editMode && tabItems.length===0;
-
-  const groups={};
-  if(tab==="daily"||tab==="close"){ CATS.forEach(c=>groups[c]=[]); tabItems.forEach(i=>(groups[i.cat]||(groups[i.cat]=[])).push(i)); }
-  else if(tab==="weekly"){ DAYS.forEach(d=>groups[d]=[]); tabItems.forEach(i=>(groups[i.cat]||(groups[i.cat]=[])).push(i)); }
-  else { groups[""]=tabItems.slice(); }
-
-  const histAvg=histRows.length?Math.round(histRows.reduce((s,r)=>s+(r.total?Math.min(100,r.done/r.total*100):0),0)/histRows.length):0;
-  const histFull=histRows.filter(r=>r.total&&r.done>=r.total).length;
-
-  const Seg=({value,options,labels,onChange,size})=> (
-    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-      {options.map((o,k)=>(
-        <button key={o} onClick={()=>onChange(o)} style={{border:`1.5px solid ${value===o?C.cyan:C.line}`,background:value===o?C.cyanSoft:"#fff",color:value===o?C.cyanDeep:C.sub,borderRadius:10,padding:size==="sm"?"7px 12px":"9px 13px",fontSize:13,fontWeight:800,cursor:"pointer"}}>{labels?labels[k]:o}</button>
-      ))}
-    </div>
+    const total = items.filter((i) => i.freq === freq).length;
+    let raw = [];
+    if (configured && db) {
+      try {
+        const qs = await db.collection("buckets").where("freq", "==", freq).get();
+        raw = qs.docs.map((d) => {
+          const x = d.data();
+          return { sfx: x.sfx, checks: x.checks || {} };
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        const pre = "fk_b_" + freq + "__";
+        if (k && k.indexOf(pre) === 0) {
+          raw.push({ sfx: k.slice(pre.length), checks: lsGet(k, {}) });
+        }
+      }
+    }
+    const rows = raw.filter((r) => Object.keys(r.checks).length > 0).sort((a, b) => b.sfx.localeCompare(a.sfx)).slice(0, 90).map((r) => ({ sfx: r.sfx, label: histLabel(freq, r.sfx), done: Object.keys(r.checks).length, total, rec: r.checks }));
+    setHistRows(rows);
+    setHistLoading(false);
+  }, [items]);
+  const openHistory = async () => {
+    setHistExpanded(null);
+    setHistFreq(tab);
+    setHistOpen(true);
+    await loadHistory(tab);
+  };
+  const switchHistFreq = async (f) => {
+    setHistFreq(f);
+    setHistExpanded(null);
+    await loadHistory(f);
+  };
+  const itemText = (id) => {
+    const it = items.find((x) => x.id === id);
+    return it ? it.text : "#" + id;
+  };
+  const itemsOf = (f) => items.filter((i) => i.freq === f);
+  const doneCount = (f) => itemsOf(f).filter((i) => buckets[f] && buckets[f][i.id]).length;
+  const totalCount = (f) => itemsOf(f).length;
+  const tabItems = itemsOf(tab);
+  const dc = doneCount(tab), tc = totalCount(tab), pct = tc ? Math.round(dc / tc * 100) : 0;
+  const showCam = hasPhoto(tab);
+  const emptyView = !editMode && tabItems.length === 0;
+  const groups = {};
+  if (tab === "daily" || tab === "close") {
+    CATS.forEach((c) => groups[c] = []);
+    tabItems.forEach((i) => (groups[i.cat] || (groups[i.cat] = [])).push(i));
+  } else if (tab === "weekly") {
+    DAYS.forEach((d) => groups[d] = []);
+    tabItems.forEach((i) => (groups[i.cat] || (groups[i.cat] = [])).push(i));
+  } else {
+    groups[""] = tabItems.slice();
+  }
+  const histAvg = histRows.length ? Math.round(histRows.reduce((s, r) => s + (r.total ? Math.min(100, r.done / r.total * 100) : 0), 0) / histRows.length) : 0;
+  const histFull = histRows.filter((r) => r.total && r.done >= r.total).length;
+  const Seg = ({ value, options, labels, onChange, size }) => /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, options.map((o, k) => /* @__PURE__ */ React.createElement("button", { key: o, onClick: () => onChange(o), style: { border: `1.5px solid ${value === o ? C.cyan : C.line}`, background: value === o ? C.cyanSoft : "#fff", color: value === o ? C.cyanDeep : C.sub, borderRadius: 10, padding: size === "sm" ? "7px 12px" : "9px 13px", fontSize: 13, fontWeight: 800, cursor: "pointer" } }, labels ? labels[k] : o)));
+  const pill = (bg, fg, brd) => ({ background: bg, color: fg, border: `1px solid ${brd}`, borderRadius: 999, padding: "7px 13px", fontSize: 12.5, fontWeight: 800, cursor: "pointer" });
+  const CamButton = ({ freq, id, rec }) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      "aria-label": rec && rec.pic ? "\u5199\u771F\u3092\u898B\u308B" : "\u5199\u771F\u3092\u64AE\u308B",
+      onClick: (e) => {
+        e.stopPropagation();
+        rec && rec.pic ? openPhoto(freq, id, null, true) : pickPhoto(freq, id);
+      },
+      style: { position: "relative", flexShrink: 0, alignSelf: "center", width: 42, height: 42, borderRadius: 13, border: `1.5px solid ${rec && rec.pic ? C.done : C.line}`, background: rec && rec.pic ? C.done : "#fff", color: rec && rec.pic ? "#fff" : C.subLight, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }
+    },
+    "\u{1F4F7}",
+    rec && rec.pic && /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: 999, background: "#fff", border: `1.5px solid ${C.done}`, color: C.done, fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u2713")
   );
-  const pill=(bg,fg,brd)=>({background:bg,color:fg,border:`1px solid ${brd}`,borderRadius:999,padding:"7px 13px",fontSize:12.5,fontWeight:800,cursor:"pointer"});
-  const CamButton=({freq,id,rec})=> (
-    <button aria-label={rec&&rec.pic?"写真を見る":"写真を撮る"} onClick={(e)=>{ e.stopPropagation(); rec&&rec.pic?openPhoto(freq,id,null,true):pickPhoto(freq,id); }}
-      style={{position:"relative",flexShrink:0,alignSelf:"center",width:42,height:42,borderRadius:13,border:`1.5px solid ${rec&&rec.pic?C.done:C.line}`,background:rec&&rec.pic?C.done:"#fff",color:rec&&rec.pic?"#fff":C.subLight,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      📷{rec&&rec.pic&&<span style={{position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:999,background:"#fff",border:`1.5px solid ${C.done}`,color:C.done,fontSize:10,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✓</span>}
-    </button>
-  );
-
-  return (
-    <div style={{minHeight:"100vh",background:C.paper,fontFamily:"'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif",color:C.ink,WebkitFontSmoothing:"antialiased"}}>
-      <style>{`
+  return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: C.paper, fontFamily: "'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif", color: C.ink, WebkitFontSmoothing: "antialiased" } }, /* @__PURE__ */ React.createElement("style", null, `
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-        .fk-scroll{padding-bottom:calc(48px + env(safe-area-inset-bottom));}
+        .fk-scroll{padding-bottom:calc(96px + env(safe-area-inset-bottom));}
         .fk-appbar{padding-top:calc(12px + env(safe-area-inset-top));}
         .fk-row{transition:background .14s ease;} .fk-row:active{background:#F1F6FA;}
         .fk-check{transition:background .18s ease,border-color .18s ease,transform .12s cubic-bezier(.2,1.3,.5,1);} .fk-check:active{transform:scale(.88);}
@@ -386,263 +596,300 @@ function App(){
         textarea,input{font-family:inherit;}
         .fk-sticky{position:sticky;z-index:12;}
         @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
-      `}</style>
-
-      <input ref={fileRef} type="file" accept="image/*" onChange={onFilePicked} style={{display:"none"}}/>
-
-      <div ref={barRef} className="fk-appbar" style={{position:"sticky",top:0,zIndex:30,background:`linear-gradient(180deg, ${C.ink} 0%, ${C.inkSoft} 100%)`,color:"#fff",boxShadow:"0 4px 18px rgba(18,41,63,.22)"}}>
-        <div style={{maxWidth:640,margin:"0 auto",padding:"0 14px"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-            <div style={{flexShrink:0}}>
-              <div style={{fontSize:10.5,letterSpacing:".18em",color:C.cyan,fontWeight:800}}>フラン軒</div>
-              <div style={{fontSize:19,fontWeight:800,marginTop:1,letterSpacing:".01em"}}>掃除チェック</div>
-            </div>
-            <div style={{display:"flex",gap:7,alignItems:"center"}}>
-              <button className="fk-tap" onClick={openHistory} style={pill("rgba(255,255,255,.14)","#fff","rgba(255,255,255,.22)")}>履歴</button>
-              <button className="fk-tap" onClick={()=>setEditMode(v=>!v)} style={pill(editMode?C.cyan:"rgba(255,255,255,.14)",editMode?"#062830":"#fff",editMode?C.cyan:"rgba(255,255,255,.22)")}>{editMode?"完了":"編集"}</button>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:3,marginTop:12}}>
-            {TABS.map(t=>{ const on=t.key===tab,d=doneCount(t.key),tot=totalCount(t.key),done=tot>0&&d===tot;
-              return (
-                <button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,border:"none",cursor:"pointer",position:"relative",background:on?C.paper:"transparent",color:on?C.ink:"rgba(255,255,255,.72)",borderRadius:"11px 11px 0 0",padding:"9px 2px 10px",fontWeight:800,fontSize:12.5,overflow:"hidden"}}>
-                  {on&&<span style={{position:"absolute",top:0,left:10,right:10,height:3,background:C.cyan,borderRadius:3}}/>}
-                  {t.label}
-                  <span style={{display:"block",fontSize:10.5,fontWeight:800,marginTop:2,fontVariantNumeric:"tabular-nums",color:on?(done?C.done:C.subLight):"rgba(255,255,255,.5)"}}>{d}/{tot}{done?" ✓":""}</span>
-                </button>
-              ); })}
-          </div>
-        </div>
-      </div>
-
-      {!configured && (
-        <div style={{background:"#FBEEE7",color:"#8A4B1B",borderBottom:"1px solid #F0D9C7",padding:"9px 14px",fontSize:12,lineHeight:1.6,textAlign:"center"}}>
-          Firebase未設定：いまは<strong>この端末だけの保存</strong>です。全員で同期するには、ファイル冒頭の firebaseConfig に設定を貼ってください。
-        </div>
-      )}
-
-      <div className="fk-scroll" style={{maxWidth:640,margin:"0 auto",padding:"14px 12px 0"}}>
-        {emptyView ? (
-          <div style={{background:C.card,border:`1px dashed ${C.line}`,borderRadius:18,padding:"30px 20px",textAlign:"center",color:C.sub,lineHeight:1.85}}>
-            <div style={{fontSize:15,fontWeight:800,color:C.ink,marginBottom:6}}>まだ項目がありません</div>
-            右上の「編集」から追加できます。<br/>掃除表を戻すなら「編集」→「掃除表を読み込む」。
-          </div>
-        ) : (
-          <React.Fragment>
-            {!editMode && (
-              <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:"14px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:16,boxShadow:"0 1px 2px rgba(18,41,63,.04)"}}>
-                <Ring pct={pct} color={pct===100?C.done:C.cyan}/>
-                <div style={{minWidth:0}}>
-                  <div style={{fontSize:13,color:C.sub,fontWeight:700}}>{periodLabel(tab)}</div>
-                  <div style={{fontSize:19,fontWeight:800,color:C.ink,marginTop:3,fontVariantNumeric:"tabular-nums"}}>{dc} <span style={{fontSize:13,color:C.subLight,fontWeight:700}}>/ {tc} 完了</span></div>
-                  <div style={{fontSize:12,color:pct===100?C.done:C.subLight,fontWeight:700,marginTop:2}}>{pct===100?"すべて完了 🎉":`残り ${tc-dc} 件`}</div>
-                </div>
-              </div>
-            )}
-
-            {Object.entries(groups).map(([g,list])=>{
-              if(!list.length && !editMode) return null;
-              const showHeader=g!=="";
-              const gd=list.filter(i=>buckets[tab]&&buckets[tab][i.id]).length; const gDone=list.length&&gd===list.length;
-              const acc=ACCENT[g]||C.inkSoft;
-              return (
-                <div key={g||"all"} style={{marginBottom:14}}>
-                  {showHeader && (
-                    <div className="fk-sticky" style={{top:barH,background:C.paper,padding:"6px 4px 8px",display:"flex",alignItems:"center",gap:9}}>
-                      <span style={{width:9,height:9,borderRadius:3,background:acc,flexShrink:0,transform:"rotate(45deg)"}}/>
-                      <span style={{fontSize:14,fontWeight:800,color:C.ink}}>{tab==="weekly"?`${g}曜日`:g}</span>
-                      {!editMode && <span style={{fontSize:11,fontWeight:800,color:gDone?C.done:C.subLight,background:gDone?C.doneSoft:"#fff",border:`1px solid ${gDone?"transparent":C.line}`,borderRadius:999,padding:"2px 9px",fontVariantNumeric:"tabular-nums"}}>{gd}/{list.length}{gDone?" ✓":""}</span>}
-                      <span style={{flex:1,height:1,background:C.line}}/>
-                    </div>
-                  )}
-                  <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden",boxShadow:"0 1px 2px rgba(18,41,63,.04)"}}>
-                    {list.length===0 && <div style={{padding:"16px",fontSize:13,color:C.subLight}}>項目なし</div>}
-                    {list.map((i,idx)=>{ const rec=buckets[tab]&&buckets[tab][i.id]; const done=!!rec;
-                      if(editMode){
-                        return (
-                          <div key={i.id} style={{display:"flex",gap:9,alignItems:"center",padding:"11px 12px",borderTop:idx===0?"none":`1px solid ${C.lineSoft}`}}>
-                            <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                              <button className="fk-tap" onClick={()=>move(i.id,-1)} style={{border:`1px solid ${C.line}`,background:"#fff",borderRadius:7,width:32,height:25,fontSize:11,cursor:"pointer",color:C.sub}}>▲</button>
-                              <button className="fk-tap" onClick={()=>move(i.id,1)} style={{border:`1px solid ${C.line}`,background:"#fff",borderRadius:7,width:32,height:25,fontSize:11,cursor:"pointer",color:C.sub}}>▼</button>
-                            </div>
-                            <button onClick={()=>openEdit(i)} style={{flex:1,textAlign:"left",background:"transparent",border:"none",cursor:"pointer",padding:0}}>
-                              <div style={{fontSize:14.5,fontWeight:600,color:C.ink,lineHeight:1.45}}>{i.text}</div>
-                              {(i.note||tab!=="monthly") && (
-                                <div style={{marginTop:6,display:"flex",gap:6,flexWrap:"wrap"}}>
-                                  {tab!=="monthly" && <span style={{fontSize:10.5,fontWeight:800,color:C.sub,background:C.lineSoft,borderRadius:6,padding:"2px 8px"}}>{tab==="weekly"?`${i.cat}曜`:i.cat}</span>}
-                                  {i.note && <span style={{fontSize:10.5,fontWeight:800,color:C.cyanDeep,background:C.cyanSoft,borderRadius:6,padding:"2px 8px"}}>{i.note}</span>}
-                                </div>
-                              )}
-                            </button>
-                            <button className="fk-tap" onClick={()=>openEdit(i)} style={{border:`1px solid ${C.line}`,background:"#fff",borderRadius:9,padding:"8px 12px",fontSize:13,fontWeight:800,color:C.cyanDeep,cursor:"pointer"}}>編集</button>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={i.id} style={{display:"flex",gap:11,alignItems:"stretch",padding:"11px 12px 11px 14px",borderTop:idx===0?"none":`1px solid ${C.lineSoft}`,background:done?C.doneSoft:C.card}}>
-                          <div className="fk-row" role="button" tabIndex={0} onClick={()=>toggle(tab,i.id)} onKeyDown={(e)=>(e.key==="Enter"||e.key===" ")&&(e.preventDefault(),toggle(tab,i.id))} style={{display:"flex",gap:13,alignItems:"flex-start",cursor:"pointer",flex:1,minWidth:0,padding:"3px 0",borderRadius:8}}>
-                            <div className="fk-check" style={{width:27,height:27,flexShrink:0,marginTop:1,borderRadius:9,border:done?"none":"2px solid #C4CFD9",background:done?C.done:"#fff",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:16,fontWeight:900,boxShadow:done?"none":"inset 0 1px 2px rgba(18,41,63,.05)"}}>{done?"✓":""}</div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:15,lineHeight:1.5,fontWeight:600,color:done?C.subLight:C.ink,textDecoration:done?"line-through":"none",textDecorationColor:"rgba(21,122,84,.5)"}}>{i.text}</div>
-                              {(i.note||done) && (
-                                <div style={{display:"flex",flexWrap:"wrap",gap:7,marginTop:7,alignItems:"center"}}>
-                                  {i.note && <span style={{fontSize:10.5,fontWeight:800,color:C.cyanDeep,background:C.cyanSoft,borderRadius:6,padding:"2px 8px"}}>{i.note}</span>}
-                                  {done && <span style={{fontSize:10.5,fontWeight:800,color:C.done,background:"#fff",border:`1px solid ${C.doneSoft}`,borderRadius:999,padding:"2px 9px",fontVariantNumeric:"tabular-nums"}}>✓ {rec.by} {rec.at}</span>}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {showCam && <CamButton freq={tab} id={i.id} rec={rec}/>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </React.Fragment>
-        )}
-
-        {editMode ? (
-          <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:6}}>
-            <button className="fk-tap" onClick={openNew} style={{background:C.cyan,color:"#062830",border:"none",borderRadius:12,padding:"13px",fontSize:14.5,fontWeight:800,cursor:"pointer"}}>＋ {TABS.find(t=>t.key===tab).label}に項目を追加</button>
-            <button className="fk-tap" onClick={loadSeed} style={{background:"#fff",color:C.ink,border:`1px solid ${C.line}`,borderRadius:12,padding:"11px",fontSize:13,fontWeight:800,cursor:"pointer"}}>掃除表を読み込む（初期状態に戻す）</button>
-            {items.length>0 && <button className="fk-tap" onClick={clearAll} style={{background:"#fff",color:C.drop,border:`1px solid ${C.line}`,borderRadius:12,padding:"11px",fontSize:13,fontWeight:800,cursor:"pointer"}}>全項目を削除して白紙にする</button>}
-          </div>
-        ) : !emptyView ? (
-          <div style={{marginTop:6}}>
-            <button className="fk-tap" onClick={()=>resetFreq(tab)} style={{background:"#fff",color:C.drop,border:`1px solid ${C.line}`,borderRadius:12,padding:"10px 15px",fontSize:13,fontWeight:800,cursor:"pointer"}}>この画面をリセット（{TABS.find(t=>t.key===tab).label}）</button>
-            <div style={{fontSize:11.5,color:C.subLight,lineHeight:1.75,marginTop:14,padding:"0 2px"}}>
-              {me ? (<React.Fragment>記録名 <span style={{color:C.sub,fontWeight:800}}>{me}</span>　<button onClick={()=>{setNameInput(me);setEditingName(true);}} style={{background:"none",border:"none",color:C.cyanDeep,fontWeight:800,fontSize:11.5,cursor:"pointer",padding:0,textDecoration:"underline"}}>変更</button><br/></React.Fragment>) : (<React.Fragment>項目を押すと名前を聞かれます。次回からは自動でその名前で記録されます。<br/></React.Fragment>)}
-              {showCam && <React.Fragment>各項目の 📷 で掃除写真を添付できます（縮小して保存・全員に共有）。<br/></React.Fragment>}
-              デイリー・クローズは毎日、ウィークリーは週、マンスリーは月で自動リセットされます。
-              {synced && <React.Fragment><br/>{configured?"同期中":"この端末に保存"} ・ {pad(synced.getHours())}:{pad(synced.getMinutes())}</React.Fragment>}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {viewer && (
-        <div onClick={()=>setViewer(null)} style={{position:"fixed",inset:0,background:"rgba(6,18,28,.92)",zIndex:80,display:"flex",flexDirection:"column"}}>
-          <div className="fk-appbar" style={{padding:"0 16px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",color:"#fff"}}>
-            <div style={{fontSize:14,fontWeight:700,maxWidth:"70%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{itemText(viewer.id)}</div>
-            <button onClick={()=>setViewer(null)} style={pill("rgba(255,255,255,.16)","#fff","rgba(255,255,255,.28)")}>閉じる</button>
-          </div>
-          <div onClick={(e)=>e.stopPropagation()} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 12px",minHeight:0}}>
-            {viewer.loading ? <div style={{color:"#fff",opacity:.8}}>読み込み中…</div> : viewer.src ? <img src={viewer.src} alt="掃除写真" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:12,objectFit:"contain"}}/> : <div style={{color:"#fff",opacity:.8,textAlign:"center",lineHeight:1.7}}>写真が見つかりませんでした。<br/>削除済みか、まだ同期されていない可能性があります。</div>}
-          </div>
-          <div style={{padding:"16px",paddingBottom:"calc(16px + env(safe-area-inset-bottom))",display:"flex",gap:8,justifyContent:"center"}}>
-            {viewer.canDelete && <button onClick={()=>pickPhoto(viewer.freq,viewer.id)} style={pill(C.cyan,"#062830",C.cyan)}>撮り直す</button>}
-            {viewer.canDelete && viewer.src && <button onClick={deletePhoto} style={pill("transparent","#fff",C.drop)}>削除</button>}
-          </div>
-        </div>
-      )}
-
-      {histOpen && (
-        <div style={{position:"fixed",inset:0,background:C.paper,zIndex:55,display:"flex",flexDirection:"column"}}>
-          <div className="fk-appbar" style={{background:`linear-gradient(180deg, ${C.ink} 0%, ${C.inkSoft} 100%)`,color:"#fff",padding:"0 16px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 4px 18px rgba(18,41,63,.22)"}}>
-            <div style={{fontSize:17,fontWeight:800}}>履歴</div>
-            <button onClick={()=>setHistOpen(false)} style={pill(C.cyan,"#062830",C.cyan)}>閉じる</button>
-          </div>
-          <div style={{padding:"12px 14px 4px",maxWidth:640,width:"100%",margin:"0 auto"}}>
-            <Seg value={histFreq} options={FREQS} labels={["デイリー","クローズ","ウィークリー","マンスリー"]} size="sm" onChange={switchHistFreq}/>
-          </div>
-          <div className="fk-scroll" style={{flex:1,overflowY:"auto",padding:"8px 14px 0",maxWidth:640,width:"100%",margin:"0 auto"}}>
-            {!histLoading && histRows.length>0 && (
-              <div style={{display:"flex",gap:10,margin:"6px 0 14px"}}>
-                <div style={{flex:1,background:C.card,border:`1px solid ${C.line}`,borderRadius:14,padding:"13px 15px"}}>
-                  <div style={{fontSize:11.5,color:C.sub,fontWeight:700}}>平均達成率</div>
-                  <div style={{fontSize:26,fontWeight:800,color:C.ink,fontVariantNumeric:"tabular-nums"}}>{histAvg}<span style={{fontSize:14,color:C.subLight}}>％</span></div>
-                  <div style={{fontSize:10.5,color:C.subLight}}>直近{histRows.length}{cadence(histFreq)==="daily"?"日":cadence(histFreq)==="weekly"?"週":"か月"}</div>
-                </div>
-                <div style={{flex:1,background:C.card,border:`1px solid ${C.line}`,borderRadius:14,padding:"13px 15px"}}>
-                  <div style={{fontSize:11.5,color:C.sub,fontWeight:700}}>全項目クリア</div>
-                  <div style={{fontSize:26,fontWeight:800,color:C.done,fontVariantNumeric:"tabular-nums"}}>{histFull}<span style={{fontSize:14,color:C.subLight}}>回</span></div>
-                  <div style={{fontSize:10.5,color:C.subLight}}>100%達成した回数</div>
-                </div>
-              </div>
-            )}
-            {histLoading && <div style={{padding:"30px 0",textAlign:"center",color:C.subLight,fontSize:14}}>読み込み中…</div>}
-            {!histLoading && histRows.length===0 && <div style={{padding:"40px 16px",textAlign:"center",color:C.subLight,fontSize:14,lineHeight:1.7}}>まだ記録がありません。<br/>チェックを始めると、ここに達成状況が残ります。</div>}
-            {!histLoading && histRows.map(r=>{ const p=r.total?Math.min(100,Math.round(r.done/r.total*100)):0; const full=r.total&&r.done>=r.total; const open=histExpanded===r.sfx;
-              const detail=Object.entries(r.rec).sort((a,b)=>(a[1].at||"").localeCompare(b[1].at||""));
-              return (
-                <div key={r.sfx} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:14,marginBottom:8,overflow:"hidden"}}>
-                  <button onClick={()=>setHistExpanded(open?null:r.sfx)} style={{width:"100%",textAlign:"left",background:"transparent",border:"none",cursor:"pointer",padding:"13px 14px",display:"flex",alignItems:"center",gap:12}}>
-                    <div style={{width:74,flexShrink:0,fontSize:13.5,fontWeight:800,color:C.ink}}>{r.label}</div>
-                    <div style={{flex:1,minWidth:0}}><div style={{height:9,background:C.lineSoft,borderRadius:999,overflow:"hidden"}}><div style={{width:`${p}%`,height:"100%",background:full?C.done:C.cyan,borderRadius:999}}/></div></div>
-                    <div style={{width:72,flexShrink:0,textAlign:"right",fontSize:12.5,color:C.sub,fontVariantNumeric:"tabular-nums"}}><span style={{fontSize:15,fontWeight:800,color:full?C.done:C.ink}}>{p}％</span><br/><span style={{fontSize:10.5}}>{r.done}/{r.total}</span></div>
-                    <div style={{color:C.subLight,fontSize:12,flexShrink:0}}>{open?"▲":"▼"}</div>
-                  </button>
-                  {open && (
-                    <div style={{borderTop:`1px solid ${C.lineSoft}`,padding:"10px 14px",background:"#FAFCFD"}}>
-                      {detail.length===0 ? <div style={{fontSize:12.5,color:C.subLight}}>チェックなし</div> : detail.map(([id,v])=>(
-                        <div key={id} style={{display:"flex",gap:8,alignItems:"baseline",padding:"5px 0",fontSize:12.5}}>
-                          <span style={{color:C.done,fontWeight:900,flexShrink:0}}>✓</span>
-                          <span style={{flex:1,color:C.ink,lineHeight:1.45}}>{itemText(id)}</span>
-                          {v.pic && <button onClick={()=>openPhoto(histFreq,id,r.sfx,false)} style={{background:C.doneSoft,border:`1px solid ${C.done}`,color:C.done,borderRadius:7,padding:"2px 8px",fontSize:11,fontWeight:800,cursor:"pointer",flexShrink:0}}>📷</button>}
-                          <span style={{color:C.subLight,flexShrink:0,fontSize:11,fontVariantNumeric:"tabular-nums"}}>{v.by} {v.at}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {!histLoading && histRows.length>0 && <div style={{fontSize:11,color:C.subLight,lineHeight:1.7,marginTop:10}}>達成率は「その期間のチェック数 ÷ 現在の項目数」です。行をタップで内訳、📷で写真を確認できます。</div>}
-          </div>
-        </div>
-      )}
-
-      {editing && (
-        <div onClick={()=>setEditing(null)} style={{position:"fixed",inset:0,background:"rgba(18,41,63,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:60}}>
-          <div onClick={(e)=>e.stopPropagation()} style={{background:"#fff",borderRadius:"20px 20px 0 0",padding:"20px 20px calc(20px + env(safe-area-inset-bottom))",width:"100%",maxWidth:640,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 -10px 44px rgba(0,0,0,.28)"}}>
-            <div style={{width:40,height:4,borderRadius:999,background:C.line,margin:"-6px auto 14px"}}/>
-            <div style={{fontSize:16.5,fontWeight:800,marginBottom:16}}>{editing._new?"項目を追加":"項目を編集"}</div>
-            <label style={{fontSize:12.5,fontWeight:800,color:C.sub}}>チェック項目</label>
-            <textarea value={editing.text} onChange={(e)=>setEditing({...editing,text:e.target.value})} rows={2} placeholder="例：製氷機は清潔に保たれている" style={{width:"100%",padding:"11px 13px",fontSize:15,border:`1.5px solid ${C.line}`,borderRadius:12,margin:"7px 0 16px",outline:"none",resize:"vertical"}}/>
-            <label style={{fontSize:12.5,fontWeight:800,color:C.sub,display:"block",marginBottom:7}}>種類</label>
-            <div style={{marginBottom:16}}><Seg value={editing.freq} options={FREQS} labels={["デイリー","クローズ","ウィークリー","マンスリー"]} onChange={(v)=>setEditing({...editing,freq:v,cat:v==="weekly"?(DAYS.indexOf(editing.cat)>=0?editing.cat:"月"):v==="monthly"?"":(CATS.indexOf(editing.cat)>=0?editing.cat:"トップ"),note:v==="daily"?(editing.note||""):""})}/></div>
-            {editing.freq!=="monthly" && (
-              <React.Fragment>
-                <label style={{fontSize:12.5,fontWeight:800,color:C.sub,display:"block",marginBottom:7}}>{editing.freq==="weekly"?"曜日":"ポジション"}</label>
-                <div style={{marginBottom:16}}><Seg value={editing.cat} options={editing.freq==="weekly"?DAYS:CATS} onChange={(v)=>setEditing({...editing,cat:v})}/></div>
-              </React.Fragment>
-            )}
-            {editing.freq==="daily" && (
-              <React.Fragment>
-                <label style={{fontSize:12.5,fontWeight:800,color:C.sub}}>時間メモ（任意）</label>
-                <input value={editing.note} onChange={(e)=>setEditing({...editing,note:e.target.value})} placeholder="例：15時まで" style={{width:"100%",padding:"11px 13px",fontSize:15,border:`1.5px solid ${C.line}`,borderRadius:12,margin:"7px 0 16px",outline:"none"}}/>
-              </React.Fragment>
-            )}
-            {hasPhoto(editing.freq) && <div style={{fontSize:12,color:C.cyanDeep,background:C.cyanSoft,borderRadius:10,padding:"9px 11px",marginBottom:16}}>この項目には掃除写真を添付できます（チェック画面の 📷）。</div>}
-            <div style={{display:"flex",gap:8}}>
-              {!editing._new && <button onClick={()=>deleteItem(editing.id)} style={{background:"#fff",color:C.drop,border:`1.5px solid ${C.drop}`,borderRadius:12,padding:"13px 15px",fontSize:14,fontWeight:800,cursor:"pointer"}}>削除</button>}
-              <button onClick={()=>setEditing(null)} style={{flex:1,background:C.lineSoft,color:C.sub,border:"none",borderRadius:12,padding:"13px",fontSize:14,fontWeight:800,cursor:"pointer"}}>キャンセル</button>
-              <button onClick={saveItem} style={{flex:2,background:C.cyan,color:"#062830",border:"none",borderRadius:12,padding:"13px",fontSize:14,fontWeight:800,cursor:"pointer"}}>保存</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editingName && (
-        <div onClick={closeName} style={{position:"fixed",inset:0,background:"rgba(18,41,63,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:70,padding:20}}>
-          <div onClick={(e)=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,padding:22,width:"100%",maxWidth:340,boxShadow:"0 16px 48px rgba(0,0,0,.28)"}}>
-            <div style={{fontSize:16.5,fontWeight:800,marginBottom:5}}>お名前は？</div>
-            <div style={{fontSize:12.5,color:C.sub,marginBottom:15,lineHeight:1.6}}>チェックした人として記録されます。次回からは自動でこの名前で記録され、聞かれません。この端末に保存されます。</div>
-            <input autoFocus value={nameInput} onChange={(e)=>setNameInput(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&saveName()} placeholder="例：田中" style={{width:"100%",padding:"12px 13px",fontSize:15,border:`1.5px solid ${C.line}`,borderRadius:12,marginBottom:15,outline:"none"}}/>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={closeName} style={{flex:1,background:C.lineSoft,color:C.sub,border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:800,cursor:"pointer"}}>やめる</button>
-              <button onClick={saveName} style={{flex:2,background:C.cyan,color:"#062830",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:800,cursor:"pointer"}}>{pendingCheck?"これでチェック":"保存"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      `), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFilePicked, style: { display: "none" } }), /* @__PURE__ */ React.createElement("div", { ref: barRef, className: "fk-appbar", style: { position: "sticky", top: 0, zIndex: 30, background: `linear-gradient(180deg, ${C.ink} 0%, ${C.inkSoft} 100%)`, color: "#fff", boxShadow: "0 4px 18px rgba(18,41,63,.22)" } }, /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 640, margin: "0 auto", padding: "0 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, letterSpacing: ".18em", color: C.cyan, fontWeight: 800 } }, "\u30D5\u30E9\u30F3\u8ED2"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 19, fontWeight: 800, marginTop: 1, letterSpacing: ".01em" } }, "\u6383\u9664\u30C1\u30A7\u30C3\u30AF")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, alignItems: "center" } }, /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: openHistory, style: pill("rgba(255,255,255,.14)", "#fff", "rgba(255,255,255,.22)") }, "\u5C65\u6B74"), /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: () => setEditMode((v) => !v), style: pill(editMode ? C.cyan : "rgba(255,255,255,.14)", editMode ? "#062830" : "#fff", editMode ? C.cyan : "rgba(255,255,255,.22)") }, editMode ? "\u5B8C\u4E86" : "\u7DE8\u96C6"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 3, marginTop: 12 } }, TABS.map((t) => {
+    const on = t.key === tab, d = doneCount(t.key), tot = totalCount(t.key), done = tot > 0 && d === tot;
+    return /* @__PURE__ */ React.createElement("button", { key: t.key, onClick: () => setTab(t.key), style: { flex: 1, border: "none", cursor: "pointer", position: "relative", background: on ? C.paper : "transparent", color: on ? C.ink : "rgba(255,255,255,.72)", borderRadius: "11px 11px 0 0", padding: "9px 2px 10px", fontWeight: 800, fontSize: 12.5, overflow: "hidden" } }, on && /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 0, left: 10, right: 10, height: 3, background: C.cyan, borderRadius: 3 } }), t.label, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 10.5, fontWeight: 800, marginTop: 2, fontVariantNumeric: "tabular-nums", color: on ? done ? C.done : C.subLight : "rgba(255,255,255,.5)" } }, d, "/", tot, done ? " \u2713" : ""));
+  })))), !configured && /* @__PURE__ */ React.createElement("div", { style: { background: "#FBEEE7", color: "#8A4B1B", borderBottom: "1px solid #F0D9C7", padding: "9px 14px", fontSize: 12, lineHeight: 1.6, textAlign: "center" } }, "Firebase\u672A\u8A2D\u5B9A\uFF1A\u3044\u307E\u306F", /* @__PURE__ */ React.createElement("strong", null, "\u3053\u306E\u7AEF\u672B\u3060\u3051\u306E\u4FDD\u5B58"), "\u3067\u3059\u3002\u5168\u54E1\u3067\u540C\u671F\u3059\u308B\u306B\u306F\u3001\u30D5\u30A1\u30A4\u30EB\u5192\u982D\u306E firebaseConfig \u306B\u8A2D\u5B9A\u3092\u8CBC\u3063\u3066\u304F\u3060\u3055\u3044\u3002"), /* @__PURE__ */ React.createElement("div", { className: "fk-scroll", style: { maxWidth: 640, margin: "0 auto", padding: "14px 12px 0" } }, emptyView ? /* @__PURE__ */ React.createElement("div", { style: { background: C.card, border: `1px dashed ${C.line}`, borderRadius: 18, padding: "30px 20px", textAlign: "center", color: C.sub, lineHeight: 1.85 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: C.ink, marginBottom: 6 } }, "\u307E\u3060\u9805\u76EE\u304C\u3042\u308A\u307E\u305B\u3093"), "\u53F3\u4E0A\u306E\u300C\u7DE8\u96C6\u300D\u304B\u3089\u8FFD\u52A0\u3067\u304D\u307E\u3059\u3002", /* @__PURE__ */ React.createElement("br", null), "\u6383\u9664\u8868\u3092\u623B\u3059\u306A\u3089\u300C\u7DE8\u96C6\u300D\u2192\u300C\u6383\u9664\u8868\u3092\u8AAD\u307F\u8FBC\u3080\u300D\u3002") : /* @__PURE__ */ React.createElement(React.Fragment, null, !editMode && /* @__PURE__ */ React.createElement("div", { style: { background: C.card, border: `1px solid ${C.line}`, borderRadius: 18, padding: "14px 16px", marginBottom: 14, display: "flex", alignItems: "center", gap: 16, boxShadow: "0 1px 2px rgba(18,41,63,.04)" } }, /* @__PURE__ */ React.createElement(Ring, { pct, color: pct === 100 ? C.done : C.cyan }), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: C.sub, fontWeight: 700 } }, periodLabel(tab)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 19, fontWeight: 800, color: C.ink, marginTop: 3, fontVariantNumeric: "tabular-nums" } }, dc, " ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: C.subLight, fontWeight: 700 } }, "/ ", tc, " \u5B8C\u4E86")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: pct === 100 ? C.done : C.subLight, fontWeight: 700, marginTop: 2 } }, pct === 100 ? "\u3059\u3079\u3066\u5B8C\u4E86 \u{1F389}" : `\u6B8B\u308A ${tc - dc} \u4EF6`))), Object.entries(groups).map(([g, list]) => {
+    if (!list.length && !editMode) return null;
+    const showHeader = g !== "";
+    const gd = list.filter((i) => buckets[tab] && buckets[tab][i.id]).length;
+    const gDone = list.length && gd === list.length;
+    const acc = ACCENT[g] || C.inkSoft;
+    return /* @__PURE__ */ React.createElement("div", { key: g || "all", style: { marginBottom: 14 } }, showHeader && /* @__PURE__ */ React.createElement("div", { className: "fk-sticky", style: { top: barH, background: C.paper, padding: "6px 4px 8px", display: "flex", alignItems: "center", gap: 9 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 9, height: 9, borderRadius: 3, background: acc, flexShrink: 0, transform: "rotate(45deg)" } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, fontWeight: 800, color: C.ink } }, tab === "weekly" ? `${g}\u66DC\u65E5` : g), !editMode && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: gDone ? C.done : C.subLight, background: gDone ? C.doneSoft : "#fff", border: `1px solid ${gDone ? "transparent" : C.line}`, borderRadius: 999, padding: "2px 9px", fontVariantNumeric: "tabular-nums" } }, gd, "/", list.length, gDone ? " \u2713" : ""), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, height: 1, background: C.line } })), /* @__PURE__ */ React.createElement("div", { style: { background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 2px rgba(18,41,63,.04)" } }, list.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "16px", fontSize: 13, color: C.subLight } }, "\u9805\u76EE\u306A\u3057"), list.map((i, idx) => {
+      const rec = buckets[tab] && buckets[tab][i.id];
+      const done = !!rec;
+      if (editMode) {
+        return /* @__PURE__ */ React.createElement("div", { key: i.id, style: { display: "flex", gap: 9, alignItems: "center", padding: "11px 12px", borderTop: idx === 0 ? "none" : `1px solid ${C.lineSoft}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: () => move(i.id, -1), style: { border: `1px solid ${C.line}`, background: "#fff", borderRadius: 7, width: 32, height: 25, fontSize: 11, cursor: "pointer", color: C.sub } }, "\u25B2"), /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: () => move(i.id, 1), style: { border: `1px solid ${C.line}`, background: "#fff", borderRadius: 7, width: 32, height: 25, fontSize: 11, cursor: "pointer", color: C.sub } }, "\u25BC")), /* @__PURE__ */ React.createElement("button", { onClick: () => openEdit(i), style: { flex: 1, textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14.5, fontWeight: 600, color: C.ink, lineHeight: 1.45 } }, i.text), (i.note || tab !== "monthly") && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" } }, tab !== "monthly" && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: C.sub, background: C.lineSoft, borderRadius: 6, padding: "2px 8px" } }, tab === "weekly" ? `${i.cat}\u66DC` : i.cat), i.note && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: C.cyanDeep, background: C.cyanSoft, borderRadius: 6, padding: "2px 8px" } }, i.note))), /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: () => openEdit(i), style: { border: `1px solid ${C.line}`, background: "#fff", borderRadius: 9, padding: "8px 12px", fontSize: 13, fontWeight: 800, color: C.cyanDeep, cursor: "pointer" } }, "\u7DE8\u96C6"));
+      }
+      return /* @__PURE__ */ React.createElement("div", { key: i.id, style: { display: "flex", gap: 11, alignItems: "stretch", padding: "11px 12px 11px 14px", borderTop: idx === 0 ? "none" : `1px solid ${C.lineSoft}`, background: done ? C.doneSoft : C.card } }, /* @__PURE__ */ React.createElement("div", { className: "fk-row", role: "button", tabIndex: 0, onClick: () => toggle(tab, i.id), onKeyDown: (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), toggle(tab, i.id)), style: { display: "flex", gap: 13, alignItems: "flex-start", cursor: "pointer", flex: 1, minWidth: 0, padding: "3px 0", borderRadius: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "fk-check", style: { width: 27, height: 27, flexShrink: 0, marginTop: 1, borderRadius: 9, border: done ? "none" : "2px solid #C4CFD9", background: done ? C.done : "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: 900, boxShadow: done ? "none" : "inset 0 1px 2px rgba(18,41,63,.05)" } }, done ? "\u2713" : ""), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, lineHeight: 1.5, fontWeight: 600, color: done ? C.subLight : C.ink, textDecoration: done ? "line-through" : "none", textDecorationColor: "rgba(21,122,84,.5)" } }, i.text), (i.note || done) && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 7, alignItems: "center" } }, i.note && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: C.cyanDeep, background: C.cyanSoft, borderRadius: 6, padding: "2px 8px" } }, i.note), done && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: C.done, background: "#fff", border: `1px solid ${C.doneSoft}`, borderRadius: 999, padding: "2px 9px", fontVariantNumeric: "tabular-nums" } }, "\u2713 ", rec.by, " ", rec.at)))), showCam && /* @__PURE__ */ React.createElement(CamButton, { freq: tab, id: i.id, rec }));
+    })));
+  })), editMode ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: openNew, style: { background: C.cyan, color: "#062830", border: "none", borderRadius: 12, padding: "13px", fontSize: 14.5, fontWeight: 800, cursor: "pointer" } }, "\uFF0B ", TABS.find((t) => t.key === tab).label, "\u306B\u9805\u76EE\u3092\u8FFD\u52A0"), /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: loadSeed, style: { background: "#fff", color: C.ink, border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px", fontSize: 13, fontWeight: 800, cursor: "pointer" } }, "\u6383\u9664\u8868\u3092\u8AAD\u307F\u8FBC\u3080\uFF08\u521D\u671F\u72B6\u614B\u306B\u623B\u3059\uFF09"), items.length > 0 && /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: clearAll, style: { background: "#fff", color: C.drop, border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px", fontSize: 13, fontWeight: 800, cursor: "pointer" } }, "\u5168\u9805\u76EE\u3092\u524A\u9664\u3057\u3066\u767D\u7D19\u306B\u3059\u308B")) : !emptyView ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { className: "fk-tap", onClick: () => resetFreq(tab), style: { background: "#fff", color: C.drop, border: `1px solid ${C.line}`, borderRadius: 12, padding: "10px 15px", fontSize: 13, fontWeight: 800, cursor: "pointer" } }, "\u3053\u306E\u753B\u9762\u3092\u30EA\u30BB\u30C3\u30C8\uFF08", TABS.find((t) => t.key === tab).label, "\uFF09"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: C.subLight, lineHeight: 1.75, marginTop: 14, padding: "0 2px" } }, me ? /* @__PURE__ */ React.createElement(React.Fragment, null, "\u8A18\u9332\u540D ", /* @__PURE__ */ React.createElement("span", { style: { color: C.sub, fontWeight: 800 } }, me), "\u3000", /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    setNameInput(me);
+    setEditingName(true);
+  }, style: { background: "none", border: "none", color: C.cyanDeep, fontWeight: 800, fontSize: 11.5, cursor: "pointer", padding: 0, textDecoration: "underline" } }, "\u5909\u66F4"), /* @__PURE__ */ React.createElement("br", null)) : /* @__PURE__ */ React.createElement(React.Fragment, null, "\u9805\u76EE\u3092\u62BC\u3059\u3068\u540D\u524D\u3092\u805E\u304B\u308C\u307E\u3059\u3002\u6B21\u56DE\u304B\u3089\u306F\u81EA\u52D5\u3067\u305D\u306E\u540D\u524D\u3067\u8A18\u9332\u3055\u308C\u307E\u3059\u3002", /* @__PURE__ */ React.createElement("br", null)), showCam && /* @__PURE__ */ React.createElement(React.Fragment, null, "\u5404\u9805\u76EE\u306E \u{1F4F7} \u3067\u6383\u9664\u5199\u771F\u3092\u6DFB\u4ED8\u3067\u304D\u307E\u3059\uFF08\u7E2E\u5C0F\u3057\u3066\u4FDD\u5B58\u30FB\u5168\u54E1\u306B\u5171\u6709\uFF09\u3002", /* @__PURE__ */ React.createElement("br", null)), "\u30C7\u30A4\u30EA\u30FC\u30FB\u30AF\u30ED\u30FC\u30BA\u306F\u6BCE\u65E5\u3001\u30A6\u30A3\u30FC\u30AF\u30EA\u30FC\u306F\u9031\u3001\u30DE\u30F3\u30B9\u30EA\u30FC\u306F\u6708\u3067\u81EA\u52D5\u30EA\u30BB\u30C3\u30C8\u3055\u308C\u307E\u3059\u3002", synced && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("br", null), configured ? "\u540C\u671F\u4E2D" : "\u3053\u306E\u7AEF\u672B\u306B\u4FDD\u5B58", " \u30FB ", pad(synced.getHours()), ":", pad(synced.getMinutes())))) : null), viewer && /* @__PURE__ */ React.createElement("div", { onClick: () => setViewer(null), style: { position: "fixed", inset: 0, background: "rgba(6,18,28,.92)", zIndex: 80, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { className: "fk-appbar", style: { padding: "0 16px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", color: "#fff" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 700, maxWidth: "70%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, itemText(viewer.id)), /* @__PURE__ */ React.createElement("button", { onClick: () => setViewer(null), style: pill("rgba(255,255,255,.16)", "#fff", "rgba(255,255,255,.28)") }, "\u9589\u3058\u308B")), /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 12px", minHeight: 0 } }, viewer.loading ? /* @__PURE__ */ React.createElement("div", { style: { color: "#fff", opacity: 0.8 } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026") : viewer.src ? /* @__PURE__ */ React.createElement("img", { src: viewer.src, alt: "\u6383\u9664\u5199\u771F", style: { maxWidth: "100%", maxHeight: "100%", borderRadius: 12, objectFit: "contain" } }) : /* @__PURE__ */ React.createElement("div", { style: { color: "#fff", opacity: 0.8, textAlign: "center", lineHeight: 1.7 } }, "\u5199\u771F\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F\u3002", /* @__PURE__ */ React.createElement("br", null), "\u524A\u9664\u6E08\u307F\u304B\u3001\u307E\u3060\u540C\u671F\u3055\u308C\u3066\u3044\u306A\u3044\u53EF\u80FD\u6027\u304C\u3042\u308A\u307E\u3059\u3002")), /* @__PURE__ */ React.createElement("div", { style: { padding: "16px", paddingBottom: "calc(16px + env(safe-area-inset-bottom))", display: "flex", gap: 8, justifyContent: "center" } }, viewer.canDelete && /* @__PURE__ */ React.createElement("button", { onClick: () => pickPhoto(viewer.freq, viewer.id), style: pill(C.cyan, "#062830", C.cyan) }, "\u64AE\u308A\u76F4\u3059"), viewer.canDelete && viewer.src && /* @__PURE__ */ React.createElement("button", { onClick: deletePhoto, style: pill("transparent", "#fff", C.drop) }, "\u524A\u9664"))), histOpen && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: C.paper, zIndex: 55, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { className: "fk-appbar", style: { background: `linear-gradient(180deg, ${C.ink} 0%, ${C.inkSoft} 100%)`, color: "#fff", padding: "0 16px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 18px rgba(18,41,63,.22)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 17, fontWeight: 800 } }, "\u5C65\u6B74"), /* @__PURE__ */ React.createElement("button", { onClick: () => setHistOpen(false), style: pill(C.cyan, "#062830", C.cyan) }, "\u9589\u3058\u308B")), /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 14px 4px", maxWidth: 640, width: "100%", margin: "0 auto" } }, /* @__PURE__ */ React.createElement(Seg, { value: histFreq, options: FREQS, labels: ["\u30C7\u30A4\u30EA\u30FC", "\u30AF\u30ED\u30FC\u30BA", "\u30A6\u30A3\u30FC\u30AF\u30EA\u30FC", "\u30DE\u30F3\u30B9\u30EA\u30FC"], size: "sm", onChange: switchHistFreq })), /* @__PURE__ */ React.createElement("div", { className: "fk-scroll", style: { flex: 1, overflowY: "auto", padding: "8px 14px 0", maxWidth: 640, width: "100%", margin: "0 auto" } }, !histLoading && histRows.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, margin: "6px 0 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: "13px 15px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: C.sub, fontWeight: 700 } }, "\u5E73\u5747\u9054\u6210\u7387"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 26, fontWeight: 800, color: C.ink, fontVariantNumeric: "tabular-nums" } }, histAvg, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, color: C.subLight } }, "\uFF05")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.subLight } }, "\u76F4\u8FD1", histRows.length, cadence(histFreq) === "daily" ? "\u65E5" : cadence(histFreq) === "weekly" ? "\u9031" : "\u304B\u6708")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: "13px 15px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: C.sub, fontWeight: 700 } }, "\u5168\u9805\u76EE\u30AF\u30EA\u30A2"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 26, fontWeight: 800, color: C.done, fontVariantNumeric: "tabular-nums" } }, histFull, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, color: C.subLight } }, "\u56DE")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.subLight } }, "100%\u9054\u6210\u3057\u305F\u56DE\u6570"))), histLoading && /* @__PURE__ */ React.createElement("div", { style: { padding: "30px 0", textAlign: "center", color: C.subLight, fontSize: 14 } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026"), !histLoading && histRows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: C.subLight, fontSize: 14, lineHeight: 1.7 } }, "\u307E\u3060\u8A18\u9332\u304C\u3042\u308A\u307E\u305B\u3093\u3002", /* @__PURE__ */ React.createElement("br", null), "\u30C1\u30A7\u30C3\u30AF\u3092\u59CB\u3081\u308B\u3068\u3001\u3053\u3053\u306B\u9054\u6210\u72B6\u6CC1\u304C\u6B8B\u308A\u307E\u3059\u3002"), !histLoading && histRows.map((r) => {
+    const p = r.total ? Math.min(100, Math.round(r.done / r.total * 100)) : 0;
+    const full = r.total && r.done >= r.total;
+    const open = histExpanded === r.sfx;
+    const detail = Object.entries(r.rec).sort((a, b) => (a[1].at || "").localeCompare(b[1].at || ""));
+    return /* @__PURE__ */ React.createElement("div", { key: r.sfx, style: { background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, marginBottom: 8, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setHistExpanded(open ? null : r.sfx), style: { width: "100%", textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "13px 14px", display: "flex", alignItems: "center", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 74, flexShrink: 0, fontSize: 13.5, fontWeight: 800, color: C.ink } }, r.label), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { height: 9, background: C.lineSoft, borderRadius: 999, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { width: `${p}%`, height: "100%", background: full ? C.done : C.cyan, borderRadius: 999 } }))), /* @__PURE__ */ React.createElement("div", { style: { width: 72, flexShrink: 0, textAlign: "right", fontSize: 12.5, color: C.sub, fontVariantNumeric: "tabular-nums" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: full ? C.done : C.ink } }, p, "\uFF05"), /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5 } }, r.done, "/", r.total)), /* @__PURE__ */ React.createElement("div", { style: { color: C.subLight, fontSize: 12, flexShrink: 0 } }, open ? "\u25B2" : "\u25BC")), open && /* @__PURE__ */ React.createElement("div", { style: { borderTop: `1px solid ${C.lineSoft}`, padding: "10px 14px", background: "#FAFCFD" } }, detail.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, color: C.subLight } }, "\u30C1\u30A7\u30C3\u30AF\u306A\u3057") : detail.map(([id, v]) => /* @__PURE__ */ React.createElement("div", { key: id, style: { display: "flex", gap: 8, alignItems: "baseline", padding: "5px 0", fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.done, fontWeight: 900, flexShrink: 0 } }, "\u2713"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, color: C.ink, lineHeight: 1.45 } }, itemText(id)), v.pic && /* @__PURE__ */ React.createElement("button", { onClick: () => openPhoto(histFreq, id, r.sfx, false), style: { background: C.doneSoft, border: `1px solid ${C.done}`, color: C.done, borderRadius: 7, padding: "2px 8px", fontSize: 11, fontWeight: 800, cursor: "pointer", flexShrink: 0 } }, "\u{1F4F7}"), /* @__PURE__ */ React.createElement("span", { style: { color: C.subLight, flexShrink: 0, fontSize: 11, fontVariantNumeric: "tabular-nums" } }, v.by, " ", v.at)))));
+  }), !histLoading && histRows.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.subLight, lineHeight: 1.7, marginTop: 10 } }, "\u9054\u6210\u7387\u306F\u300C\u305D\u306E\u671F\u9593\u306E\u30C1\u30A7\u30C3\u30AF\u6570 \xF7 \u73FE\u5728\u306E\u9805\u76EE\u6570\u300D\u3067\u3059\u3002\u884C\u3092\u30BF\u30C3\u30D7\u3067\u5185\u8A33\u3001\u{1F4F7}\u3067\u5199\u771F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u3059\u3002"))), editing && /* @__PURE__ */ React.createElement("div", { onClick: () => setEditing(null), style: { position: "fixed", inset: 0, background: "rgba(18,41,63,.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 60 } }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { background: "#fff", borderRadius: "20px 20px 0 0", padding: "20px 20px calc(20px + env(safe-area-inset-bottom))", width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 -10px 44px rgba(0,0,0,.28)" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 40, height: 4, borderRadius: 999, background: C.line, margin: "-6px auto 14px" } }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16.5, fontWeight: 800, marginBottom: 16 } }, editing._new ? "\u9805\u76EE\u3092\u8FFD\u52A0" : "\u9805\u76EE\u3092\u7DE8\u96C6"), /* @__PURE__ */ React.createElement("label", { style: { fontSize: 12.5, fontWeight: 800, color: C.sub } }, "\u30C1\u30A7\u30C3\u30AF\u9805\u76EE"), /* @__PURE__ */ React.createElement("textarea", { value: editing.text, onChange: (e) => setEditing({ ...editing, text: e.target.value }), rows: 2, placeholder: "\u4F8B\uFF1A\u88FD\u6C37\u6A5F\u306F\u6E05\u6F54\u306B\u4FDD\u305F\u308C\u3066\u3044\u308B", style: { width: "100%", padding: "11px 13px", fontSize: 15, border: `1.5px solid ${C.line}`, borderRadius: 12, margin: "7px 0 16px", outline: "none", resize: "vertical" } }), /* @__PURE__ */ React.createElement("label", { style: { fontSize: 12.5, fontWeight: 800, color: C.sub, display: "block", marginBottom: 7 } }, "\u7A2E\u985E"), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(Seg, { value: editing.freq, options: FREQS, labels: ["\u30C7\u30A4\u30EA\u30FC", "\u30AF\u30ED\u30FC\u30BA", "\u30A6\u30A3\u30FC\u30AF\u30EA\u30FC", "\u30DE\u30F3\u30B9\u30EA\u30FC"], onChange: (v) => setEditing({ ...editing, freq: v, cat: v === "weekly" ? DAYS.indexOf(editing.cat) >= 0 ? editing.cat : "\u6708" : v === "monthly" ? "" : CATS.indexOf(editing.cat) >= 0 ? editing.cat : "\u30C8\u30C3\u30D7", note: v === "daily" ? editing.note || "" : "" }) })), editing.freq !== "monthly" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 12.5, fontWeight: 800, color: C.sub, display: "block", marginBottom: 7 } }, editing.freq === "weekly" ? "\u66DC\u65E5" : "\u30DD\u30B8\u30B7\u30E7\u30F3"), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(Seg, { value: editing.cat, options: editing.freq === "weekly" ? DAYS : CATS, onChange: (v) => setEditing({ ...editing, cat: v }) }))), editing.freq === "daily" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 12.5, fontWeight: 800, color: C.sub } }, "\u6642\u9593\u30E1\u30E2\uFF08\u4EFB\u610F\uFF09"), /* @__PURE__ */ React.createElement("input", { value: editing.note, onChange: (e) => setEditing({ ...editing, note: e.target.value }), placeholder: "\u4F8B\uFF1A15\u6642\u307E\u3067", style: { width: "100%", padding: "11px 13px", fontSize: 15, border: `1.5px solid ${C.line}`, borderRadius: 12, margin: "7px 0 16px", outline: "none" } })), hasPhoto(editing.freq) && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: C.cyanDeep, background: C.cyanSoft, borderRadius: 10, padding: "9px 11px", marginBottom: 16 } }, "\u3053\u306E\u9805\u76EE\u306B\u306F\u6383\u9664\u5199\u771F\u3092\u6DFB\u4ED8\u3067\u304D\u307E\u3059\uFF08\u30C1\u30A7\u30C3\u30AF\u753B\u9762\u306E \u{1F4F7}\uFF09\u3002"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, !editing._new && /* @__PURE__ */ React.createElement("button", { onClick: () => deleteItem(editing.id), style: { background: "#fff", color: C.drop, border: `1.5px solid ${C.drop}`, borderRadius: 12, padding: "13px 15px", fontSize: 14, fontWeight: 800, cursor: "pointer" } }, "\u524A\u9664"), /* @__PURE__ */ React.createElement("button", { onClick: () => setEditing(null), style: { flex: 1, background: C.lineSoft, color: C.sub, border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" } }, "\u30AD\u30E3\u30F3\u30BB\u30EB"), /* @__PURE__ */ React.createElement("button", { onClick: saveItem, style: { flex: 2, background: C.cyan, color: "#062830", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" } }, "\u4FDD\u5B58")))), editingName && /* @__PURE__ */ React.createElement("div", { onClick: closeName, style: { position: "fixed", inset: 0, background: "rgba(18,41,63,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 } }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { background: "#fff", borderRadius: 20, padding: 22, width: "100%", maxWidth: 340, boxShadow: "0 16px 48px rgba(0,0,0,.28)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16.5, fontWeight: 800, marginBottom: 5 } }, "\u304A\u540D\u524D\u306F\uFF1F"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, color: C.sub, marginBottom: 15, lineHeight: 1.6 } }, "\u30C1\u30A7\u30C3\u30AF\u3057\u305F\u4EBA\u3068\u3057\u3066\u8A18\u9332\u3055\u308C\u307E\u3059\u3002\u6B21\u56DE\u304B\u3089\u306F\u81EA\u52D5\u3067\u3053\u306E\u540D\u524D\u3067\u8A18\u9332\u3055\u308C\u3001\u805E\u304B\u308C\u307E\u305B\u3093\u3002\u3053\u306E\u7AEF\u672B\u306B\u4FDD\u5B58\u3055\u308C\u307E\u3059\u3002"), /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: nameInput, onChange: (e) => setNameInput(e.target.value), onKeyDown: (e) => e.key === "Enter" && saveName(), placeholder: "\u4F8B\uFF1A\u7530\u4E2D", style: { width: "100%", padding: "12px 13px", fontSize: 15, border: `1.5px solid ${C.line}`, borderRadius: 12, marginBottom: 15, outline: "none" } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: closeName, style: { flex: 1, background: C.lineSoft, color: C.sub, border: "none", borderRadius: 12, padding: "12px", fontSize: 14, fontWeight: 800, cursor: "pointer" } }, "\u3084\u3081\u308B"), /* @__PURE__ */ React.createElement("button", { onClick: saveName, style: { flex: 2, background: C.cyan, color: "#062830", border: "none", borderRadius: 12, padding: "12px", fontSize: 14, fontWeight: 800, cursor: "pointer" } }, pendingCheck ? "\u3053\u308C\u3067\u30C1\u30A7\u30C3\u30AF" : "\u4FDD\u5B58")))));
 }
+const K_FLOAT_DEFAULT = 17e4;
+const CP_IDS = ["cp0", "cp1", "cp2"];
+const CP_LABELS_DEFAULT = ["15\u6642", "18\u6642", "\u30E9\u30B9\u30C8"];
+const KIN = ["c500", "c100", "c50", "c10"];
+const KIN_MULT = { c500: 500, c100: 5e3, c50: 2500, c10: 500 };
+const KIN_UNIT = { c500: "\u679A", c100: "\u672C", c50: "\u672C", c10: "\u672C" };
+const KIN_LABEL = { c500: "500\u5186", c100: "100\u5186", c50: "50\u5186", c10: "10\u5186" };
+const K_BLANK = { uriage: "", genkin: "", kenbaiki: "", c500: "", c100: "", c50: "", c10: "", checker: "" };
+const kNum = (x) => x === "" || x == null || isNaN(parseFloat(x)) ? 0 : parseFloat(x);
+const kYen = (n) => n === "" || n == null || isNaN(n) ? "\u2014" : "\xA5" + Math.round(Number(n)).toLocaleString("ja-JP");
+const kNn = (n) => n == null || isNaN(n) ? "\u2014" : Math.round(Number(n)).toLocaleString("ja-JP");
+const kEndOf = (g) => kNum(g) - Math.floor(kNum(g) / 1e3) * 1e3;
+const kAvg = (s, c) => c ? s / c : null;
+const kKinYen = (e) => KIN.reduce((s, k) => s + kNum(e && e[k]) * KIN_MULT[k], 0);
+const ckey = (day, cpId) => `${day}-${cpId}`;
+function KRow({ label, value, strong }) {
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13.5, color: C.sub } }, label), /* @__PURE__ */ React.createElement("span", { style: { fontSize: strong ? 16 : 13.5, fontWeight: strong ? 800 : 700, color: C.ink, fontVariantNumeric: "tabular-nums" } }, value));
+}
+function KInput({ label, value, onChange, onFocus, onBlur, suffix, align, placeholder }) {
+  return /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 0" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13.5, color: C.sub, flexShrink: 0 } }, label), /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      inputMode: align === "left" ? void 0 : "numeric",
+      value,
+      placeholder: placeholder || "",
+      onChange: (e) => onChange(e.target.value),
+      onFocus,
+      onBlur,
+      style: { width: 130, borderRadius: 11, border: `1.5px solid ${C.line}`, padding: "9px 11px", fontSize: 15.5, color: C.ink, outline: "none", textAlign: align === "left" ? "left" : "right", fontVariantNumeric: "tabular-nums" }
+    }
+  ), suffix && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: C.subLight, width: 18 } }, suffix)));
+}
+function KDivider() {
+  return /* @__PURE__ */ React.createElement("div", { style: { borderTop: `1px solid ${C.lineSoft}` } });
+}
+function KPanel({ children, style }) {
+  return /* @__PURE__ */ React.createElement("div", { style: { background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: "0 1px 2px rgba(18,41,63,.04)", ...style || {} } }, children);
+}
+function KinshuApp() {
+  const now = /* @__PURE__ */ new Date();
+  const year = now.getFullYear(), month0 = now.getMonth();
+  const monthKey2 = `${year}-${pad(month0 + 1)}`;
+  const daysInMonth = new Date(year, month0 + 1, 0).getDate();
+  const wdOfDay = (d) => new Date(year, month0, d).getDay();
+  const isWE = (d) => {
+    const w = wdOfDay(d);
+    return w === 0 || w === 6;
+  };
+  const wkColor = (d) => wdOfDay(d) === 6 ? "#2563EB" : wdOfDay(d) === 0 ? C.drop : C.ink;
+  const rowTint = (d) => wdOfDay(d) === 0 ? "#FCEFEF" : wdOfDay(d) === 6 ? "#EEF4FD" : "#fff";
+  const [store, setStore] = useState({});
+  const [settings, setSettings] = useState({ float: K_FLOAT_DEFAULT, cps: CP_LABELS_DEFAULT.slice() });
+  const [dayIdx, setDayIdx] = useState(Math.min(now.getDate() - 1, daysInMonth - 1));
+  const [segIdx, setSegIdx] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [synced, setSynced] = useState(false);
+  const focusedRef = useRef(null);
+  const cfg = typeof configured !== "undefined" && configured && db;
+  const monthRef = () => db.collection("kinshu").doc(monthKey2);
+  const setRef = () => db.collection("kinshu").doc("_settings");
+  useEffect(() => {
+    if (cfg) {
+      const u1 = monthRef().onSnapshot((snap) => {
+        const remote = snap.exists ? snap.data().entries || {} : {};
+        setStore((prev) => {
+          const f = focusedRef.current;
+          const out = { ...remote };
+          if (f && prev[f]) out[f] = prev[f];
+          return out;
+        });
+        setSynced(true);
+      }, (e) => console.error(e));
+      const u2 = setRef().onSnapshot((snap) => {
+        if (snap.exists) {
+          const d = snap.data();
+          setSettings({ float: d.float != null ? d.float : K_FLOAT_DEFAULT, cps: d.cps && d.cps.length === 3 ? d.cps : CP_LABELS_DEFAULT.slice() });
+        } else {
+          setRef().set({ float: K_FLOAT_DEFAULT, cps: CP_LABELS_DEFAULT.slice() }).catch(() => {
+          });
+        }
+      }, (e) => console.error(e));
+      return () => {
+        u1();
+        u2();
+      };
+    } else {
+      try {
+        const m = localStorage.getItem("kinshu_" + monthKey2);
+        if (m) setStore(JSON.parse(m));
+      } catch (e) {
+      }
+      try {
+        const s = localStorage.getItem("kinshu_settings");
+        if (s) setSettings(JSON.parse(s));
+      } catch (e) {
+      }
+      setSynced(true);
+    }
+  }, [monthKey2]);
+  const cps = settings.cps || CP_LABELS_DEFAULT;
+  const isMonth = segIdx === 3;
+  const cpIdx = isMonth ? 2 : segIdx;
+  const cpId = CP_IDS[cpIdx];
+  const isLast = cpIdx === 2;
+  const dayNum = dayIdx + 1;
+  const k = ckey(dayNum, cpId);
+  const entry = store[k] || K_BLANK;
+  const carry = (field) => {
+    const gIndex = (dayNum - 1) * 3 + cpIdx;
+    for (let g = gIndex - 1; g >= 0; g--) {
+      const d = Math.floor(g / 3) + 1, ci = g % 3;
+      const e = store[ckey(d, CP_IDS[ci])];
+      if (e && e[field] !== "" && e[field] != null) return e[field];
+    }
+    return "";
+  };
+  const eff = (field) => entry[field] !== "" && entry[field] != null ? entry[field] : KIN.indexOf(field) >= 0 ? carry(field) : "";
+  const writeEntry = (kk, obj) => {
+    if (cfg) monthRef().set({ month: monthKey2, entries: { [kk]: obj } }, { merge: true }).catch((e) => console.error(e));
+    else {
+      const next = { ...store, [kk]: obj };
+      try {
+        localStorage.setItem("kinshu_" + monthKey2, JSON.stringify(next));
+      } catch (e) {
+      }
+    }
+  };
+  const setField = (field, val) => {
+    setStore((s) => {
+      const cur = { ...s[k] || K_BLANK };
+      cur[field] = val;
+      return { ...s, [k]: cur };
+    });
+  };
+  const commit = () => {
+    writeEntry(k, { ...store[k] || K_BLANK });
+  };
+  const saveSettings = (patch) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    if (cfg) setRef().set(next, { merge: true }).catch(() => {
+    });
+    else {
+      try {
+        localStorage.setItem("kinshu_settings", JSON.stringify(next));
+      } catch (e) {
+      }
+    }
+  };
+  const FLOAT = kNum(settings.float) || K_FLOAT_DEFAULT;
+  const genkin = kNum(eff("genkin")), uriage = kNum(eff("uriage")), kenbaiki = kNum(eff("kenbaiki"));
+  const kinsyu = kKinYen({ c500: eff("c500"), c100: eff("c100"), c50: eff("c50"), c10: eff("c10") });
+  const cashless = uriage - genkin;
+  const nyukin = Math.floor(genkin / 1e3) * 1e3;
+  const hasu = genkin - nyukin;
+  let uriageTotal = 0, hasuPrev = 0, hasuToday = 0;
+  for (let d = 1; d <= dayNum; d++) {
+    const e = store[ckey(d, "cp2")];
+    const t = e && e.genkin !== "" ? kEndOf(e.genkin) : 0;
+    if (e && e.uriage !== "") uriageTotal += kNum(e.uriage);
+    if (d < dayNum) hasuPrev += t;
+    else hasuToday = t;
+  }
+  const hasuTotal = hasuPrev + hasuToday;
+  const expected = isLast ? FLOAT + hasuTotal : FLOAT + hasuPrev + genkin;
+  const sa = kenbaiki + kinsyu - expected;
+  const mk = () => ({ l: 0, lc: 0, i: 0, ic: 0, d: 0, dc: 0, day: 0, dayc: 0 });
+  const A = mk(), WDg = mk(), WEg = mk();
+  let run = 0;
+  const rows = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const l = store[ckey(d, "cp0")], m = store[ckey(d, "cp1")], e = store[ckey(d, "cp2")];
+    const lunch = l && l.uriage !== "" ? kNum(l.uriage) : null;
+    const to18 = m && m.uriage !== "" ? kNum(m.uriage) : null;
+    const day = e && e.uriage !== "" ? kNum(e.uriage) : null;
+    const idle = to18 != null && lunch != null ? to18 - lunch : null;
+    const dinner = day != null && to18 != null ? day - to18 : null;
+    if (day != null) run += day;
+    [A, isWE(d) ? WEg : WDg].forEach((g) => {
+      if (lunch != null) {
+        g.l += lunch;
+        g.lc++;
+      }
+      if (idle != null) {
+        g.i += idle;
+        g.ic++;
+      }
+      if (dinner != null) {
+        g.d += dinner;
+        g.dc++;
+      }
+      if (day != null) {
+        g.day += day;
+        g.dayc++;
+      }
+    });
+    rows.push({ d, lunch, idle, dinner, day, cum: day != null ? run : null });
+  }
+  const mAvg = kAvg(A.day, A.dayc) || 0;
+  const mChakuchi = mAvg * daysInMonth;
+  const lAvg = kAvg(A.l, A.lc), iAvg = kAvg(A.i, A.ic), dAvg = kAvg(A.d, A.dc);
+  const saSt = sa < 0 ? { c: C.drop, t: "\u8AA4\u5DEE\u3042\u308A" } : sa > 0 ? { c: "#B7791F", t: "\u904E\u5270" } : { c: C.done, t: "\u4E00\u81F4" };
+  const SEG_LABELS = [cps[0], cps[1], cps[2], "\u6708\u6B21"];
+  const cpLabel = cps[cpIdx];
+  const th = { padding: "10px 10px", fontWeight: 700, whiteSpace: "nowrap", fontSize: 11.5 };
+  const td = { padding: "8px 10px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 };
+  return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: C.paper, fontFamily: "'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif", color: C.ink } }, /* @__PURE__ */ React.createElement("div", { className: "fk-appbar", style: { position: "sticky", top: 0, zIndex: 30, background: `linear-gradient(180deg, ${C.ink} 0%, ${C.inkSoft} 100%)`, color: "#fff", boxShadow: "0 4px 18px rgba(18,41,63,.22)" } }, /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 640, margin: "0 auto", padding: "0 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, letterSpacing: ".18em", color: C.cyan, fontWeight: 800 } }, "\u30D5\u30E9\u30F3\u8ED2"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 19, fontWeight: 800, marginTop: 1 } }, "\u91D1\u7A2E\u7BA1\u7406\u8868")), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "fk-tap",
+      onClick: () => setShowSettings((v) => !v),
+      style: { background: showSettings ? C.cyan : "rgba(255,255,255,.14)", color: showSettings ? "#062830" : "#fff", border: `1px solid ${showSettings ? C.cyan : "rgba(255,255,255,.22)"}`, borderRadius: 999, padding: "7px 13px", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }
+    },
+    "\u8A2D\u5B9A"
+  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 3, marginTop: 12 } }, SEG_LABELS.map((c, i) => {
+    const on = i === segIdx;
+    return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => setSegIdx(i), style: { flex: 1, position: "relative", border: "none", cursor: "pointer", background: on ? C.paper : "transparent", color: on ? C.ink : "rgba(255,255,255,.72)", borderRadius: "11px 11px 0 0", padding: "9px 2px 10px", fontWeight: 800, fontSize: 12.5 } }, on && /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 0, left: 10, right: 10, height: 3, background: C.cyan, borderRadius: 3 } }), c);
+  })))), /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 640, margin: "0 auto", paddingLeft: 12, paddingRight: 12, paddingTop: 14, paddingBottom: "calc(96px + env(safe-area-inset-bottom))" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, color: C.sub, fontWeight: 700, marginBottom: 12 } }, year, "\u5E74", month0 + 1, "\u6708\u3000", cfg ? synced ? "\u540C\u671F\u4E2D" : "\u63A5\u7D9A\u4E2D\u2026" : "\u3053\u306E\u7AEF\u672B\u306B\u4FDD\u5B58"), showSettings && /* @__PURE__ */ React.createElement(KPanel, null, /* @__PURE__ */ React.createElement(KInput, { label: "\u30EC\u30B8\u91D1\uFF08\u91E3\u92AD\u6E96\u5099\u91D1\uFF09", value: String(settings.float), onChange: (v) => saveSettings({ float: kNum(v) }), suffix: "\u5186" }), /* @__PURE__ */ React.createElement(KDivider, null), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: C.subLight, margin: "8px 0 4px" } }, "\u6642\u9593\u5E2F\u306E\u540D\u524D"), [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement(KInput, { label: `\u30C1\u30A7\u30C3\u30AF${i + 1}`, value: cps[i], onChange: (v) => {
+    const n = cps.slice();
+    n[i] = v;
+    saveSettings({ cps: n });
+  }, align: "left" }), i < 2 && /* @__PURE__ */ React.createElement(KDivider, null))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.subLight, marginTop: 8, lineHeight: 1.6 } }, "\u203B \u5909\u66F4\u306F\u5168\u54E1\u306B\u5171\u6709\u3055\u308C\u307E\u3059\u3002\u904E\u53BB\u306B\u5165\u529B\u3057\u305F\u6570\u5B57\u306F\u305D\u306E\u307E\u307E\u6B8B\u308A\u307E\u3059\u3002")), !isMonth && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 12 } }, rows.map((r) => {
+    const on = r.d - 1 === dayIdx;
+    return /* @__PURE__ */ React.createElement("button", { key: r.d, onClick: () => setDayIdx(r.d - 1), style: { flexShrink: 0, width: 48, padding: "6px 0", borderRadius: 12, textAlign: "center", cursor: "pointer", background: on ? C.cyan : "#fff", border: on ? "none" : `1px solid ${C.line}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 800, lineHeight: 1, color: on ? "#062830" : wkColor(r.d), fontVariantNumeric: "tabular-nums" } }, r.d), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, lineHeight: 1, marginTop: 3, color: on ? "#062830" : wkColor(r.d), opacity: on ? 0.9 : 0.7 } }, WD[wdOfDay(r.d)]));
+  })), isMonth ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, overflow: "hidden", marginBottom: 12, boxShadow: "0 1px 2px rgba(18,41,63,.04)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr" } }, [{ n: "\u30E9\u30F3\u30C1", v: lAvg, c: "#C58A2E", s: "\u301C" + cps[0] }, { n: "\u30A2\u30A4\u30C9\u30EB", v: iAvg, c: "#5b6472", s: cps[0] + "\u2013" + cps[1] }, { n: "\u30C7\u30A3\u30CA\u30FC", v: dAvg, c: "#3b4a7a", s: cps[1] + "\u301C" }].map((x, i) => /* @__PURE__ */ React.createElement("div", { key: x.n, style: { padding: 12, textAlign: "center", borderLeft: i ? `1px solid ${C.lineSoft}` : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: 999, background: x.c } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: C.ink } }, x.n)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.subLight, margin: "1px 0 2px" } }, x.s), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15.5, fontWeight: 800, color: x.c, fontVariantNumeric: "tabular-nums" } }, kNn(x.v))))), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", fontSize: 10, padding: "5px 0", background: "#F7F9FB", color: C.sub } }, "1\u65E5\u3042\u305F\u308A\u5E73\u5747\u58F2\u4E0A")), /* @__PURE__ */ React.createElement("div", { style: { background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", marginBottom: 14, boxShadow: "0 1px 2px rgba(18,41,63,.04)" } }, [{ l: "\u5408\u8A08\u58F2\u4E0A", v: kYen(A.day) }, { l: `\u65E5\u5E73\u5747\uFF08${A.dayc}\u65E5\uFF09`, v: kYen(mAvg) }, { l: "\u7740\u5730\u898B\u8FBC\u307F", v: kYen(mChakuchi) }].map((x, i) => /* @__PURE__ */ React.createElement("div", { key: x.l, style: { padding: 12, borderLeft: i ? `1px solid ${C.lineSoft}` : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.sub, marginBottom: 1 } }, x.l), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 800, color: C.ink, fontVariantNumeric: "tabular-nums" } }, x.v)))), /* @__PURE__ */ React.createElement("div", { style: { background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 2px rgba(18,41,63,.04)" } }, /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { background: C.ink, color: "#fff" } }, /* @__PURE__ */ React.createElement("th", { style: { ...th, textAlign: "left", position: "sticky", left: 0, background: C.ink } }, "\u65E5"), /* @__PURE__ */ React.createElement("th", { style: { ...th, textAlign: "right" } }, "\u30E9\u30F3\u30C1"), /* @__PURE__ */ React.createElement("th", { style: { ...th, textAlign: "right" } }, "\u30A2\u30A4\u30C9\u30EB"), /* @__PURE__ */ React.createElement("th", { style: { ...th, textAlign: "right" } }, "\u30C7\u30A3\u30CA\u30FC"), /* @__PURE__ */ React.createElement("th", { style: { ...th, textAlign: "right" } }, "\u5F53\u65E5"), /* @__PURE__ */ React.createElement("th", { style: { ...th, textAlign: "right" } }, "\u7D2F\u8A08"))), /* @__PURE__ */ React.createElement("tbody", null, rows.map((r) => {
+    const bg = rowTint(r.d), has = r.day != null;
+    return /* @__PURE__ */ React.createElement("tr", { key: r.d, style: { borderTop: `1px solid ${C.lineSoft}`, color: has ? C.ink : C.subLight } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "7px 10px", textAlign: "left", position: "sticky", left: 0, background: bg, whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 800, color: wkColor(r.d), fontVariantNumeric: "tabular-nums" } }, r.d), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 4, fontSize: 10, color: wkColor(r.d) } }, WD[wdOfDay(r.d)])), /* @__PURE__ */ React.createElement("td", { style: { ...td, background: bg } }, kNn(r.lunch)), /* @__PURE__ */ React.createElement("td", { style: { ...td, background: bg } }, kNn(r.idle)), /* @__PURE__ */ React.createElement("td", { style: { ...td, background: bg } }, kNn(r.dinner)), /* @__PURE__ */ React.createElement("td", { style: { ...td, background: bg, fontWeight: 700 } }, kNn(r.day)), /* @__PURE__ */ React.createElement("td", { style: { ...td, background: bg, color: C.subLight } }, kNn(r.cum)));
+  })), /* @__PURE__ */ React.createElement("tfoot", null, [
+    { label: "\u5E73\u5747", l: lAvg, i: iAvg, d: dAvg, day: mAvg, top: true, lc: C.ink },
+    { label: "\u5E73\u65E5\u5E73\u5747", l: kAvg(WDg.l, WDg.lc), i: kAvg(WDg.i, WDg.ic), d: kAvg(WDg.d, WDg.dc), day: kAvg(WDg.day, WDg.dayc), lc: C.ink },
+    { label: "\u571F\u65E5\u5E73\u5747", l: kAvg(WEg.l, WEg.lc), i: kAvg(WEg.i, WEg.ic), d: kAvg(WEg.d, WEg.dc), day: kAvg(WEg.day, WEg.dayc), lc: C.drop }
+  ].map((f, i) => /* @__PURE__ */ React.createElement("tr", { key: i, style: { background: f.top ? "#F2EFE7" : "#fff", color: C.ink, borderTop: f.top ? `2px solid ${C.cyan}` : `1px solid ${C.lineSoft}` } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 10px", textAlign: "left", fontWeight: 800, position: "sticky", left: 0, background: f.top ? "#F2EFE7" : "#fff", color: f.lc, whiteSpace: "nowrap" } }, f.label), /* @__PURE__ */ React.createElement("td", { style: { ...td, fontWeight: 800 } }, kNn(f.l)), /* @__PURE__ */ React.createElement("td", { style: { ...td, fontWeight: 800 } }, kNn(f.i)), /* @__PURE__ */ React.createElement("td", { style: { ...td, fontWeight: 800 } }, kNn(f.d)), /* @__PURE__ */ React.createElement("td", { style: { ...td, fontWeight: 800 } }, kNn(f.day)), /* @__PURE__ */ React.createElement("td", { style: { ...td } }))))))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: C.subLight, lineHeight: 1.7, marginTop: 12, padding: "0 2px" } }, "\u30E9\u30F3\u30C1=", cps[0], "\u58F2\u4E0A\uFF0F\u30A2\u30A4\u30C9\u30EB=", cps[1], "\u58F2\u4E0A\u2212", cps[0], "\u58F2\u4E0A\uFF0F\u30C7\u30A3\u30CA\u30FC=\u5F53\u65E5\u58F2\u4E0A\u2212", cps[1], "\u58F2\u4E0A\u3002", /* @__PURE__ */ React.createElement("br", null), "\u571F\u65E5\uFF1D\u571F\u66DC\u30FB\u65E5\u66DC\uFF08\u795D\u65E5\u306E\u81EA\u52D5\u5224\u5B9A\u306F\u3057\u3066\u3044\u307E\u305B\u3093\uFF09\u3002", cps[1], "\u304C\u672A\u5165\u529B\u306E\u65E5\u306F\u30A2\u30A4\u30C9\u30EB\u30FB\u30C7\u30A3\u30CA\u30FC\u304C\u7A7A\u6B04\u306B\u306A\u308A\u307E\u3059\u3002")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { background: "#fff", border: `1.5px solid ${saSt.c}`, borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: "0 1px 2px rgba(18,41,63,.04)" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: saSt.c } }, "\u8AA4\u5DEE \xB7 ", saSt.t), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 30, fontWeight: 800, color: saSt.c, marginTop: 3, fontVariantNumeric: "tabular-nums" } }, kYen(sa)), sa < 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: C.drop, marginTop: 3 } }, "\u5E97\u9577\u306B\u9023\u7D61\u3057\u3066\u304F\u3060\u3055\u3044")), isLast && /* @__PURE__ */ React.createElement(KPanel, null, /* @__PURE__ */ React.createElement(KRow, { label: "\u7D2F\u8A08\u58F2\u4E0A", value: kYen(uriageTotal), strong: true }), /* @__PURE__ */ React.createElement(KDivider, null), /* @__PURE__ */ React.createElement(KRow, { label: "\u30AD\u30E3\u30C3\u30B7\u30E5\u30EC\u30B9", value: kYen(cashless) }), /* @__PURE__ */ React.createElement(KDivider, null), /* @__PURE__ */ React.createElement(KRow, { label: "\u5165\u91D1\u984D", value: kYen(nyukin) }), /* @__PURE__ */ React.createElement(KDivider, null), /* @__PURE__ */ React.createElement(KRow, { label: "\u786C\u8CA8\u7AEF\u6570\uFF08\u5F53\u65E5\uFF09", value: kYen(hasu) }), /* @__PURE__ */ React.createElement(KDivider, null), /* @__PURE__ */ React.createElement(KRow, { label: "\u786C\u8CA8\u7AEF\u6570\uFF08\u7D2F\u8A08\uFF09", value: kYen(hasuTotal) })), /* @__PURE__ */ React.createElement(KPanel, null, /* @__PURE__ */ React.createElement(KInput, { label: cpLabel + "\u58F2\u4E0A", value: eff("uriage"), onChange: (v) => setField("uriage", v), onFocus: () => focusedRef.current = k, onBlur: () => {
+    focusedRef.current = null;
+    commit();
+  }, suffix: "\u5186" }), /* @__PURE__ */ React.createElement(KDivider, null), /* @__PURE__ */ React.createElement(KInput, { label: "\u73FE\u91D1\u4F1A\u8A08", value: eff("genkin"), onChange: (v) => setField("genkin", v), onFocus: () => focusedRef.current = k, onBlur: () => {
+    focusedRef.current = null;
+    commit();
+  }, suffix: "\u5186" }), /* @__PURE__ */ React.createElement(KDivider, null), /* @__PURE__ */ React.createElement(KInput, { label: "\u5238\u58F2\u6A5F\u91D1\u984D", value: eff("kenbaiki"), onChange: (v) => setField("kenbaiki", v), onFocus: () => focusedRef.current = k, onBlur: () => {
+    focusedRef.current = null;
+    commit();
+  }, suffix: "\u5186" })), /* @__PURE__ */ React.createElement(KPanel, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: C.cyanDeep } }, "\u91D1\u7A2E"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: C.subLight } }, "\u524D\u56DE\u306E\u307E\u307E\u30FB\u5909\u308F\u3063\u305F\u6642\u3060\u3051\u5165\u529B")), KIN.map((kk, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: kk }, /* @__PURE__ */ React.createElement(KInput, { label: KIN_LABEL[kk], value: entry[kk] != null ? entry[kk] : "", placeholder: carry(kk) !== "" ? String(carry(kk)) : "", onChange: (v) => setField(kk, v), onFocus: () => focusedRef.current = k, onBlur: () => {
+    focusedRef.current = null;
+    commit();
+  }, suffix: KIN_UNIT[kk] }), i < KIN.length - 1 && /* @__PURE__ */ React.createElement(KDivider, null))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, textAlign: "right", fontSize: 12, color: C.subLight, fontVariantNumeric: "tabular-nums" } }, "\u91D1\u7A2E\u5408\u8A08 ", kYen(kinsyu))), /* @__PURE__ */ React.createElement(KPanel, null, /* @__PURE__ */ React.createElement(KInput, { label: "\u91D1\u7A2E\u78BA\u8A8D\u8005", value: entry.checker || "", onChange: (v) => setField("checker", v), onFocus: () => focusedRef.current = k, onBlur: () => {
+    focusedRef.current = null;
+    commit();
+  }, align: "left" })), /* @__PURE__ */ React.createElement("div", { style: { background: "#EEF1F5", borderRadius: 14, padding: 14, fontSize: 12, color: C.sub, lineHeight: 1.7 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 2 } }, "\u8AA4\u5DEE\u306E\u7A81\u5408"), isLast ? `\u30EC\u30B8\u91D1${kNn(FLOAT)} + \u786C\u8CA8\u7AEF\u6570\u7D2F\u8A08 ${kNn(hasuTotal)} = ${kYen(expected)}` : `\u30EC\u30B8\u91D1${kNn(FLOAT)} + \u524D\u65E5\u7AEF\u6570\u7D2F\u8A08 ${kNn(hasuPrev)} + \u73FE\u91D1\u4F1A\u8A08 = ${kYen(expected)}`, /* @__PURE__ */ React.createElement("br", null), "\u5238\u58F2\u6A5F + \u91D1\u7A2E = ", kYen(kenbaiki + kinsyu), "\uFF0F\u5DEE = ", kYen(sa)))));
+}
+function App() {
+  const [mode, setMode] = useState("clean");
+  const navItem = (kk, label, icon) => {
+    const on = mode === kk;
+    return /* @__PURE__ */ React.createElement("button", { key: kk, onClick: () => setMode(kk), className: "fk-tap", style: { flex: 1, position: "relative", border: "none", background: "transparent", cursor: "pointer", padding: "9px 0 10px", color: on ? C.cyanDeep : C.sub, fontWeight: 800 } }, on && /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 0, left: "30%", right: "30%", height: 3, background: C.cyan, borderRadius: 3 } }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, lineHeight: 1 } }, icon), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, marginTop: 3 } }, label));
+  };
+  return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: C.paper } }, /* @__PURE__ */ React.createElement("style", null, `
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+        .fk-appbar{padding-top:calc(12px + env(safe-area-inset-top));}
+        .fk-tap:active{transform:scale(.97);}
+        input:focus{border-color:#0EA5B7 !important;}
+        button:focus-visible,[role=button]:focus-visible{outline:2px solid #0EA5B7;outline-offset:2px;}
+        @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
+      `), mode === "clean" ? /* @__PURE__ */ React.createElement(CleaningApp, null) : /* @__PURE__ */ React.createElement(KinshuApp, null), /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 45, background: "#fff", borderTop: `1px solid ${C.line}`, boxShadow: "0 -2px 12px rgba(18,41,63,.08)", display: "flex", paddingBottom: "env(safe-area-inset-bottom)" } }, /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 640, margin: "0 auto", width: "100%", display: "flex" } }, navItem("clean", "\u6383\u9664", "\u{1F9F9}"), navItem("kinshu", "\u91D1\u7A2E", "\u{1FA99}"))));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
+
 </body>
 </html>
